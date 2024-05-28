@@ -85,15 +85,35 @@ class OBSRumLiveAlerts():
 
         print("Settings reset to default")
 
-    def get_scenes_and_sources(self):
-        """Get listing of OBS scenes and scene item sources"""
-        #Release the old values
-        obs.source_list_release(list(self.sources_by_name))
+    def script_unload(self):
+        """Perform script cleanup"""
+        print("Unload triggered. Cleaning up.")
+        #Erase OBS-linked data
+        self.release_old_sns_data()
+
+        #Deactivate timers and remove old livestream reference
+        obs.timer_remove(self.refresh_alert_inboxes)
+        obs.timer_remove(self.next_follower_alert)
+        obs.timer_remove(self.next_subscriber_alert)
+        obs.timer_remove(self.next_rant_alert)
+        self.livestream = None
+
+    def release_old_sns_data(self):
+        """Release and erase old scenes and sources data"""
+        obs.source_list_release(list(self.sources_by_name.values()))
+        self.sources_by_name = {}
         for scene in self.scenes_by_name.values():
             obs.obs_scene_release(scene)
+        self.scenes_by_name = ()
         for items in self.scene_items_by_name.values():
             for item in items.values():
                 obs.obs_sceneitem_release(item)
+        self.scene_items_by_name = {}
+
+    def get_scenes_and_sources(self):
+        """Get listing of OBS scenes and scene item sources"""
+        #Release the old values
+        self.release_old_sns_data()
 
         sources = obs.obs_enum_sources() #Sources that are not subscenes
         if sources is None:
@@ -104,7 +124,6 @@ class OBSRumLiveAlerts():
         scene_sources = obs.obs_frontend_get_scenes()
         self.scenes_by_name = {obs.obs_source_get_name(s) : obs.obs_scene_from_source(s) for s in scene_sources}
         obs.source_list_release(scene_sources)
-        self.scene_items_by_name = {}
         self.subscene_names = []
         for scene_name, scene in self.scenes_by_name.items():
             print(scene_name + ":")
@@ -202,17 +221,30 @@ class OBSRumLiveAlerts():
         self.rant_alert_amount_source = obs.obs_data_get_int(settings, "rant_alert_amount_source")
         self.rant_alert_scene_source = obs.obs_data_get_string(settings, "rant_alert_scene_source")
 
-        #Deactivate timers and delete the API object
+        #Deactivate timers and remove old livestream reference
         obs.timer_remove(self.refresh_alert_inboxes)
         obs.timer_remove(self.next_follower_alert)
         obs.timer_remove(self.next_subscriber_alert)
         obs.timer_remove(self.next_rant_alert)
-        self.api = None
         self.livestream = None
 
-        #We have an API URL, so activate timers
+        #We have an API URL
         if self.api_url:
-            self.api = cocorum.RumbleAPI(self.api_url, refresh_rate = 0) #The refreshing happens on this side
+            try:
+                #We had no API before
+                if not self.api:
+                    self.api = cocorum.RumbleAPI(self.api_url, refresh_rate = self.refresh_rate - 0.5)
+
+                #We do have an API but the URL is outdated
+                elif self.api.api_url != self.api_url:
+                    self.api.api_url = self.api_url
+
+            #The API URL was invalid
+            except (AssertionError, cocorum.requests.exceptions.RequestException) as e:
+                print(f"API connection failed: {e}")
+                self.api_url = ""
+                return
+
             self.livestream = self.api.latest_livestream
 
             #Clear these mailboxes
@@ -230,6 +262,10 @@ class OBSRumLiveAlerts():
 
     def refresh_alert_inboxes(self):
         """Check if there are any new alertables and add them to the inboxes"""
+        #We have no API URL or it was invalid
+        if not self.api_url:
+            return
+
         current_scene = obs.obs_frontend_get_current_scene()
         self.current_scene_name = obs.obs_source_get_name(current_scene)
         obs.obs_source_release(current_scene)
@@ -252,8 +288,12 @@ class OBSRumLiveAlerts():
         if not self.current_scene_name:
             return
 
+        try:
+            subscene = self.scene_items_by_name[self.current_scene_name][self.rant_alert_scene_source]
+        except KeyError: #Scene selection or scene items table is invalid
+            return
+
         #Finish up the last follower alert
-        subscene = self.scene_items_by_name[self.current_scene_name][self.follower_alert_scene_source]
         if obs.obs_sceneitem_visible(subscene):
             obs.obs_sceneitem_set_visible(subscene, False)
             print("Finished follower alert.")
@@ -295,8 +335,12 @@ class OBSRumLiveAlerts():
         if not self.current_scene_name:
             return
 
+        try:
+            subscene = self.scene_items_by_name[self.current_scene_name][self.rant_alert_scene_source]
+        except KeyError: #Scene selection or scene items table is invalid
+            return
+
         #Finish up the last subscriber alert
-        subscene = self.scene_items_by_name[self.current_scene_name][self.subscriber_alert_scene_source]
         if obs.obs_sceneitem_visible(subscene):
             obs.obs_sceneitem_set_visible(subscene, False)
             print("Finished subscriber alert.")
@@ -339,8 +383,12 @@ class OBSRumLiveAlerts():
         if not self.current_scene_name:
             return
 
+        try:
+            subscene = self.scene_items_by_name[self.current_scene_name][self.rant_alert_scene_source]
+        except KeyError: #Scene selection or scene items table is invalid
+            return
+
         #Finish up the last rant alert
-        subscene = self.scene_items_by_name[self.current_scene_name][self.rant_alert_scene_source]
         if obs.obs_sceneitem_visible(subscene):
             obs.obs_sceneitem_set_visible(subscene, False)
             print("Finished rant alert.")
@@ -384,6 +432,9 @@ class OBSRumLiveAlerts():
         obs.obs_sceneitem_set_visible(subscene, True)
 
 rla = OBSRumLiveAlerts()
+print("RLA initialized.")
+
 script_properties = rla.script_properties
 script_defaults = rla.script_defaults
 script_update = rla.script_update
+script_unload = rla.script_unload
