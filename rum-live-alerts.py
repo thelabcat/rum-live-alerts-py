@@ -16,6 +16,7 @@ class OBSRumLiveAlerts():
     """OBS Rumble live alerts system"""
     def __init__(self):
         """Instanced once within script as a reliable memory system"""
+        print("Initializing OBSRumLiveAlerts object")
         self.api = None
         self.livestream = None
 
@@ -58,6 +59,7 @@ class OBSRumLiveAlerts():
 
     def script_defaults(self, settings):
         """Reset all settings to their defaults"""
+        print("Called script_defaults with settings", settings)
         #Base settings
         obs.obs_data_set_default_string(settings, "api_url", "")
         obs.obs_data_set_default_int(settings, "refresh_rate", self.refresh_rate)
@@ -87,43 +89,59 @@ class OBSRumLiveAlerts():
 
     def script_unload(self):
         """Perform script cleanup"""
-        print("Unload triggered. Cleaning up.")
+        print("Unload triggered. Cleaning up")
         #Erase OBS-linked data
         self.release_old_sns_data()
 
         #Deactivate timers and remove old livestream reference
+        print("Removing timers")
         obs.timer_remove(self.refresh_alert_inboxes)
         obs.timer_remove(self.next_follower_alert)
         obs.timer_remove(self.next_subscriber_alert)
         obs.timer_remove(self.next_rant_alert)
         self.livestream = None
+        print("Unloaded.")
 
     def release_old_sns_data(self):
         """Release and erase old scenes and sources data"""
+        print("Releasing old scenes and sources data")
+        print("Releasing sources")
         obs.source_list_release(list(self.sources_by_name.values()))
         self.sources_by_name = {}
+        print("Releasing scenes")
         for scene in self.scenes_by_name.values():
             obs.obs_scene_release(scene)
         self.scenes_by_name = ()
+        print("Releasing scene items")
         for items in self.scene_items_by_name.values():
             for item in items.values():
                 obs.obs_sceneitem_release(item)
         self.scene_items_by_name = {}
+        print("Released.")
 
     def get_scenes_and_sources(self):
         """Get listing of OBS scenes and scene item sources"""
+        print("Getting scenes and sources data.")
         #Release the old values
         self.release_old_sns_data()
 
+        print("Enumerating non-subscene sources")
         sources = obs.obs_enum_sources() #Sources that are not subscenes
         if sources is None:
+            print("No non-subscene sources found.")
             sources = []
 
+        print("Getting non-subscene source names")
         self.sources_by_name = {obs.obs_source_get_name(s) : s for s in sources}
 
+        print("Getting all scenes (as sources for some reason)")
         scene_sources = obs.obs_frontend_get_scenes()
+        print("Getting scenes by name")
         self.scenes_by_name = {obs.obs_source_get_name(s) : obs.obs_scene_from_source(s) for s in scene_sources}
+        print("Releasing source versions of scenes data")
         obs.source_list_release(scene_sources)
+
+        print("Evaluating which scenes are subscenes")
         self.subscene_names = []
         for scene_name, scene in self.scenes_by_name.items():
             print(scene_name + ":")
@@ -131,17 +149,27 @@ class OBSRumLiveAlerts():
             self.scene_items_by_name[scene_name] = {}
             if scene_items:
                 for i in scene_items:
+                    #Get scene item as source and name
                     source = obs.obs_sceneitem_get_source(i)
                     name = obs.obs_source_get_name(source)
+
+                    #Store scene item source by name
                     self.scene_items_by_name[scene_name][name] = i
+
+                    #Is this item a subscene source?
                     unversioned_id = obs.obs_source_get_unversioned_id(source)
-                    print("\t" + unversioned_id + ": " + name)
                     if unversioned_id == "scene":
+                        print("\t" + unversioned_id + ": " + name, " <--")
                         self.subscene_names.append(name)
+                    else:
+                        print("\t" + unversioned_id + ": " + name)
                     obs.obs_source_release(source)
+            else:
+                print("\t--No items in this scene--")
 
     def script_properties(self):
         """Set up the configuration properties for this script"""
+        print("Setting up script properties")
         self.props = obs.obs_properties_create()
         self.get_scenes_and_sources()
 
@@ -174,6 +202,7 @@ class OBSRumLiveAlerts():
         rant_amount_prop = obs.obs_properties_add_list(self.props, "rant_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         rant_scene_prop = obs.obs_properties_add_list(self.props, "rant_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 
+        print("Adding all text display sources to the text display selectors")
         for source_name, source in self.sources_by_name.items():
             source_id = obs.obs_source_get_unversioned_id(source)
 
@@ -186,16 +215,18 @@ class OBSRumLiveAlerts():
                 obs.obs_property_list_add_string(rant_message_prop, source_name, source_name)
                 obs.obs_property_list_add_string(rant_amount_prop, source_name, source_name)
 
-        #Add all subscene sources to the subscene source selectors
+        print("Adding all subscene sources to the subscene source selectors")
         for subscene_name in self.subscene_names:
                 obs.obs_property_list_add_string(follower_scene_prop, subscene_name, subscene_name)
                 obs.obs_property_list_add_string(subscriber_scene_prop, subscene_name, subscene_name)
                 obs.obs_property_list_add_string(rant_scene_prop, subscene_name, subscene_name)
 
+        print("Properties initialized.")
         return self.props
 
     def script_update(self, settings):
         """Update the script settings"""
+        print("Updating with settings")
         #Base settings
         self.api_url = obs.obs_data_get_string(settings, "api_url")
         self.refresh_rate = obs.obs_data_get_int(settings, "refresh_rate")
@@ -222,6 +253,7 @@ class OBSRumLiveAlerts():
         self.rant_alert_scene_source = obs.obs_data_get_string(settings, "rant_alert_scene_source")
 
         #Deactivate timers and remove old livestream reference
+        print("Removing timers")
         obs.timer_remove(self.refresh_alert_inboxes)
         obs.timer_remove(self.next_follower_alert)
         obs.timer_remove(self.next_subscriber_alert)
@@ -233,10 +265,12 @@ class OBSRumLiveAlerts():
             try:
                 #We had no API before
                 if not self.api:
+                    print("Creating new Cocorum API object")
                     self.api = cocorum.RumbleAPI(self.api_url, refresh_rate = self.refresh_rate - 0.5)
 
                 #We do have an API but the URL is outdated
                 elif self.api.api_url != self.api_url:
+                    print("Updating Cocorum API URL")
                     self.api.api_url = self.api_url
 
             #The API URL was invalid
@@ -251,8 +285,10 @@ class OBSRumLiveAlerts():
             self.api.new_followers
             self.api.new_subscribers
             if self.livestream:
+                print("Clearing new rants inbox")
                 self.livestream.chat.new_rants
 
+            print("Activating timers")
             obs.timer_add(self.refresh_alert_inboxes, self.refresh_rate * 1000)
             obs.timer_add(self.next_follower_alert, self.follower_alert_time * 1000)
             obs.timer_add(self.next_subscriber_alert, self.subscriber_alert_time * 1000)
@@ -315,18 +351,18 @@ class OBSRumLiveAlerts():
             return
 
         #Set the text
-        print("Setting text...")
+        print("Setting text")
         f_uname_set = obs.obs_data_create()
         obs.obs_data_set_string(f_uname_set, "text", follower.username)
         obs.obs_source_update(self.sources_by_name[self.follower_alert_uname_source], f_uname_set)
         obs.obs_data_release(f_uname_set)
 
         #Show the alert
-        print("Showing alert...")
+        print("Showing alert")
         obs.obs_sceneitem_set_visible(subscene, True)
 
         #Wait for alert to finish hide transition as well (DOES NOT WORK)
-        #print("Waiting for hide transition...")
+        #print("Waiting for hide transition")
         #time.sleep(obs.obs_sceneitem_get_hide_transition_duration(subscene) / 1000)
 
     def next_subscriber_alert(self):
