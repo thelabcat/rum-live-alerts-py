@@ -4,19 +4,53 @@
 Live alerts for your Rumble livestream.
 S.D.G."""
 
-import os
-import time
+from queue import Queue, Empty as QueueEmpty
 import obspython as obs
 import cocorum
 
 #API_URL_START = "https://rumble.com/-livestream-api/get-data?key="
-MAX_ALERT_TIME = 6000 #Maximum for how long an alert can be displayed
+MAX_ALERT_TIME = 6000  # Maximum for how long an alert can be displayed
+
+# Minimum and maximum refresh rates to check the API again
+REFRESH_RATE_MIN = 10
+REFRESH_RATE_MAX = 300
+
+
+class DefaultSettings:
+    """The default values for the various settings in the OBS UI"""
+    # Base settings
+    api_url = ""  # Rumble Live Stream API URL
+    refresh_rate = 10  # API refresh rate
+
+    # Settings for the follower alert
+    follower_alert_use = True
+    follower_alert_time = 10
+    follower_alert_uname_source = "Follower Username"
+    follower_alert_scene_source = "Follower Scene"
+
+    # Settings for the subscriber alert
+    subscriber_alert_use = True
+    subscriber_alert_time = 10
+    subscriber_alert_uname_source = "Subscriber Username"
+    subscriber_alert_amount_source = "Subscriber Amount Dollars"
+    subscriber_alert_scene_source = "Subscriber Scene"
+
+    # Settings for the rant alert
+    rant_alert_use = True
+    rant_alert_time = 10
+    rant_alert_uname_source = "Rant Username"
+    rant_alert_message_source = "Rant Message"
+    rant_alert_amount_source = "Rant Amount Dollars"
+    rant_alert_scene_source = "Rant Scene"
+
 
 class OBSRumLiveAlerts():
     """OBS Rumble live alerts system"""
+
     def __init__(self):
         """Instanced once within script as a reliable memory system"""
         print("Initializing OBSRumLiveAlerts object")
+        self.__obs_timers_set = False
         self.api = None
         self.livestream = None
 
@@ -27,78 +61,98 @@ class OBSRumLiveAlerts():
         self.subscene_names = []
         self.current_scene_name = ""
 
-        #Inboxes of things waiting to be alerted for
-        self.follower_inbox = []
-        self.subscriber_inbox = []
-        self.rant_inbox = []
+        # Inboxes of things waiting to be alerted for
+        self.follower_inbox = Queue()
+        self.subscriber_inbox = Queue()
+        self.rant_inbox = Queue()
 
-        #Base settings
-        self.api_url = "" #Rumble Live Stream API URL
-        self.refresh_rate = 10 #API refresh rate
+        # Base settings
+        self.api_url = DefaultSettings.api_url
+        self.refresh_rate = DefaultSettings.refresh_rate  # API refresh rate
 
-        #Settings for the follower alert
-        self.follower_alert_use = True
-        self.follower_alert_time = 10
-        self.follower_alert_uname_source = "Follower Username"
-        self.follower_alert_scene_source = "Follower Scene"
+        # Settings for the follower alert
+        self.follower_alert_use = DefaultSettings.follower_alert_use
+        self.follower_alert_time = DefaultSettings.follower_alert_time
+        self.follower_alert_uname_source = DefaultSettings.follower_alert_uname_source
+        self.follower_alert_scene_source = DefaultSettings.follower_alert_scene_source
 
-        #Settings for the subscriber alert
-        self.subscriber_alert_use = True
-        self.subscriber_alert_time = 10
-        self.subscriber_alert_uname_source = "Subscriber Username"
-        self.subscriber_alert_amount_source = "Subscriber Amount Dollars"
-        self.subscriber_alert_scene_source = "Subscriber Scene"
+        # Settings for the subscriber alert
+        self.subscriber_alert_use = DefaultSettings.subscriber_alert_use
+        self.subscriber_alert_time = DefaultSettings.subscriber_alert_time
+        self.subscriber_alert_uname_source = DefaultSettings.subscriber_alert_uname_source
+        self.subscriber_alert_amount_source = DefaultSettings.subscriber_alert_amount_source
+        self.subscriber_alert_scene_source = DefaultSettings.subscriber_alert_scene_source
 
-        #Settings for the rant alert
-        self.rant_alert_use = True
-        self.rant_alert_time = 10
-        self.rant_alert_uname_source = "Rant Username"
-        self.rant_alert_message_source = "Rant Message"
-        self.rant_alert_amount_source = "Rant Amount Dollars"
-        self.rant_alert_scene_source = "Rant Scene"
+        # Settings for the rant alert
+        self.rant_alert_use = DefaultSettings.rant_alert_use
+        self.rant_alert_time = DefaultSettings.rant_alert_time
+        self.rant_alert_uname_source = DefaultSettings.rant_alert_uname_source
+        self.rant_alert_message_source = DefaultSettings.rant_alert_message_source
+        self.rant_alert_amount_source = DefaultSettings.rant_alert_amount_source
+        self.rant_alert_scene_source = DefaultSettings.rant_alert_scene_source
 
     def script_defaults(self, settings):
-        """Reset all settings to their defaults"""
+        """Set OBS setting defaults"""
         print("Called script_defaults with settings", settings)
-        #Base settings
-        obs.obs_data_set_default_string(settings, "api_url", "")
-        obs.obs_data_set_default_int(settings, "refresh_rate", self.refresh_rate)
+        # Base settings
+        obs.obs_data_set_default_string(settings, "api_url", DefaultSettings.api_url)
+        obs.obs_data_set_default_int(settings, "refresh_rate", DefaultSettings.refresh_rate)
 
-        #Follower alert settings
-        obs.obs_data_set_default_bool(settings, "follower_alert_use", self.follower_alert_use)
-        obs.obs_data_set_default_int(settings, "follower_alert_time", self.follower_alert_time)
-        obs.obs_data_set_default_string(settings, "follower_alert_uname_source", self.follower_alert_uname_source)
-        obs.obs_data_set_default_string(settings, "follower_alert_scene_source", self.follower_alert_scene_source)
+        # Follower alert settings
+        obs.obs_data_set_default_bool(settings, "follower_alert_use", DefaultSettings.follower_alert_use)
+        obs.obs_data_set_default_int(settings, "follower_alert_time", DefaultSettings.follower_alert_time)
+        obs.obs_data_set_default_string(settings, "follower_alert_uname_source", DefaultSettings.follower_alert_uname_source)
+        obs.obs_data_set_default_string(settings, "follower_alert_scene_source", DefaultSettings.follower_alert_scene_source)
 
-        #Subscriber alert settings
-        obs.obs_data_set_default_bool(settings, "subscriber_alert_use", self.subscriber_alert_use)
-        obs.obs_data_set_default_int(settings, "subscriber_alert_time", self.subscriber_alert_time)
-        obs.obs_data_set_default_string(settings, "subscriber_alert_uname_source", self.subscriber_alert_uname_source)
-        obs.obs_data_set_default_string(settings, "subscriber_alert_amount_source", self.subscriber_alert_amount_source)
-        obs.obs_data_set_default_string(settings, "subscriber_alert_scene_source", self.subscriber_alert_scene_source)
+        # Subscriber alert settings
+        obs.obs_data_set_default_bool(settings, "subscriber_alert_use", DefaultSettings.subscriber_alert_use)
+        obs.obs_data_set_default_int(settings, "subscriber_alert_time", DefaultSettings.subscriber_alert_time)
+        obs.obs_data_set_default_string(settings, "subscriber_alert_uname_source", DefaultSettings.subscriber_alert_uname_source)
+        obs.obs_data_set_default_string(settings, "subscriber_alert_amount_source", DefaultSettings.subscriber_alert_amount_source)
+        obs.obs_data_set_default_string(settings, "subscriber_alert_scene_source", DefaultSettings.subscriber_alert_scene_source)
 
-        #Rant alert settings
-        obs.obs_data_set_default_bool(settings, "rant_alert_use", self.rant_alert_use)
-        obs.obs_data_set_default_int(settings, "rant_alert_time", self.rant_alert_time)
-        obs.obs_data_set_default_string(settings, "rant_alert_uname_source", self.rant_alert_uname_source)
-        obs.obs_data_set_default_string(settings, "rant_alert_message_source", self.rant_alert_message_source)
-        obs.obs_data_set_default_string(settings, "rant_alert_amount_source", self.rant_alert_amount_source)
-        obs.obs_data_set_default_string(settings, "rant_alert_scene_source", self.rant_alert_scene_source)
+        # Rant alert settings
+        obs.obs_data_set_default_bool(settings, "rant_alert_use", DefaultSettings.rant_alert_use)
+        obs.obs_data_set_default_int(settings, "rant_alert_time", DefaultSettings.rant_alert_time)
+        obs.obs_data_set_default_string(settings, "rant_alert_uname_source", DefaultSettings.rant_alert_uname_source)
+        obs.obs_data_set_default_string(settings, "rant_alert_message_source", DefaultSettings.rant_alert_message_source)
+        obs.obs_data_set_default_string(settings, "rant_alert_amount_source", DefaultSettings.rant_alert_amount_source)
+        obs.obs_data_set_default_string(settings, "rant_alert_scene_source", DefaultSettings.rant_alert_scene_source)
 
-        print("Settings reset to default")
+        print("script_defaults done")
 
-    def script_unload(self):
-        """Perform script cleanup"""
-        print("Unload triggered. Cleaning up")
-        #Erase OBS-linked data
-        self.release_old_sns_data()
+    def set_obs_timers(self):
+        """Set all the timers we need in OBS"""
+        print("Activating timers")
+        if self.__obs_timers_set:
+            print("ERROR: Timers already set.")
+            return
+        self.__obs_timers_set = True
+        obs.timer_add(self.refresh_alert_inboxes, self.refresh_rate * 1000)
+        obs.timer_add(self.next_follower_alert, self.follower_alert_time * 1000)
+        obs.timer_add(self.next_subscriber_alert, self.subscriber_alert_time * 1000)
+        obs.timer_add(self.next_rant_alert, self.rant_alert_time * 1000)
 
-        #Deactivate timers and remove old livestream reference
+    def remove_obs_timers(self):
+        """Remove all the timers we would set for OBS"""
         print("Removing timers")
+        if not self.__obs_timers_set:
+            print("ERROR: Timers were not set.")
+            return
+        self.__obs_timers_set = False
         obs.timer_remove(self.refresh_alert_inboxes)
         obs.timer_remove(self.next_follower_alert)
         obs.timer_remove(self.next_subscriber_alert)
         obs.timer_remove(self.next_rant_alert)
+
+    def script_unload(self):
+        """Perform script cleanup"""
+        print("Unload triggered. Cleaning up")
+        # Erase OBS-linked data
+        self.release_old_sns_data()
+
+        # Deactivate timers and remove old livestream reference
+        self.remove_obs_timers()
         self.livestream = None
         print("Unloaded.")
 
@@ -122,22 +176,22 @@ class OBSRumLiveAlerts():
     def get_scenes_and_sources(self):
         """Get listing of OBS scenes and scene item sources"""
         print("Getting scenes and sources data.")
-        #Release the old values
+        # Release the old values
         self.release_old_sns_data()
 
         print("Enumerating non-subscene sources")
-        sources = obs.obs_enum_sources() #Sources that are not subscenes
+        sources = obs.obs_enum_sources()  # Sources that are not subscenes
         if sources is None:
             print("No non-subscene sources found.")
             sources = []
 
         print("Getting non-subscene source names")
-        self.sources_by_name = {obs.obs_source_get_name(s) : s for s in sources}
+        self.sources_by_name = {obs.obs_source_get_name(s): s for s in sources}
 
         print("Getting all scenes (as sources for some reason)")
         scene_sources = obs.obs_frontend_get_scenes()
         print("Getting scenes by name")
-        self.scenes_by_name = {obs.obs_source_get_name(s) : obs.obs_scene_from_source(s) for s in scene_sources}
+        self.scenes_by_name = {obs.obs_source_get_name(s): obs.obs_scene_from_source(s) for s in scene_sources}
         print("Releasing source versions of scenes data")
         obs.source_list_release(scene_sources)
 
@@ -149,20 +203,20 @@ class OBSRumLiveAlerts():
             self.scene_items_by_name[scene_name] = {}
             if scene_items:
                 for i in scene_items:
-                    #Get scene item as source and name
+                    # Get scene item as source and name
                     source = obs.obs_sceneitem_get_source(i)
                     name = obs.obs_source_get_name(source)
 
-                    #Store scene item source by name
+                    # Store scene item source by name
                     self.scene_items_by_name[scene_name][name] = i
 
-                    #Is this item a subscene source?
+                    # Is this item a subscene source?
                     unversioned_id = obs.obs_source_get_unversioned_id(source)
                     if unversioned_id == "scene":
-                        print("\t" + unversioned_id + ": " + name, " <--")
+                        print(f"\t{unversioned_id}: {name} <--")
                         self.subscene_names.append(name)
                     else:
-                        print("\t" + unversioned_id + ": " + name)
+                        print(f"\t{unversioned_id}: {name}")
                     obs.obs_source_release(source)
             else:
                 print("\t--No items in this scene--")
@@ -173,19 +227,19 @@ class OBSRumLiveAlerts():
         self.props = obs.obs_properties_create()
         self.get_scenes_and_sources()
 
-        #Base settings
+        # Base settings
         obs.obs_properties_add_text(self.props, "base_settings_header", "--- Base Settings ---", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_text(self.props, "api_url", "API URL (with key)", obs.OBS_TEXT_PASSWORD)
-        obs.obs_properties_add_int(self.props, "refresh_rate", "Refresh Rate (seconds)", 10, 300, 1)
+        obs.obs_properties_add_int(self.props, "refresh_rate", "Refresh Rate (seconds)", REFRESH_RATE_MIN, REFRESH_RATE_MAX, 1)
 
-        #Settings for the follower alert
+        # Settings for the follower alert
         obs.obs_properties_add_text(self.props, "follower_alert_header", "\n--- Follower Alert ---", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "follower_alert_use", "Use follower alert")
         obs.obs_properties_add_int(self.props, "follower_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         follower_uname_prop = obs.obs_properties_add_list(self.props, "follower_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         follower_scene_prop = obs.obs_properties_add_list(self.props, "follower_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 
-        #Settings for the subscriber alert
+        # Settings for the subscriber alert
         obs.obs_properties_add_text(self.props, "subscriber_alert_header", "\n--- Subscriber Alert ---", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "subscriber_alert_use", "Use subscriber alert")
         obs.obs_properties_add_int(self.props, "subscriber_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
@@ -193,7 +247,7 @@ class OBSRumLiveAlerts():
         subscriber_amount_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         subscriber_scene_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 
-        #Settings for the rant alert
+        # Settings for the rant alert
         obs.obs_properties_add_text(self.props, "rant_alert_header", "\n--- Rant Alert ---", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "rant_alert_use", "Use rant alert")
         obs.obs_properties_add_int(self.props, "rant_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
@@ -206,7 +260,7 @@ class OBSRumLiveAlerts():
         for source_name, source in self.sources_by_name.items():
             source_id = obs.obs_source_get_unversioned_id(source)
 
-            #Source is a text display, add it to text source selectors
+            # Source is a text display, add it to text source selectors
             if source_id in ("text_gdiplus", "text_ft2_source"):
                 obs.obs_property_list_add_string(follower_uname_prop, source_name, source_name)
                 obs.obs_property_list_add_string(subscriber_uname_prop, source_name, source_name)
@@ -217,9 +271,9 @@ class OBSRumLiveAlerts():
 
         print("Adding all subscene sources to the subscene source selectors")
         for subscene_name in self.subscene_names:
-                obs.obs_property_list_add_string(follower_scene_prop, subscene_name, subscene_name)
-                obs.obs_property_list_add_string(subscriber_scene_prop, subscene_name, subscene_name)
-                obs.obs_property_list_add_string(rant_scene_prop, subscene_name, subscene_name)
+            obs.obs_property_list_add_string(follower_scene_prop, subscene_name, subscene_name)
+            obs.obs_property_list_add_string(subscriber_scene_prop, subscene_name, subscene_name)
+            obs.obs_property_list_add_string(rant_scene_prop, subscene_name, subscene_name)
 
         print("Properties initialized.")
         return self.props
@@ -227,24 +281,24 @@ class OBSRumLiveAlerts():
     def script_update(self, settings):
         """Update the script settings"""
         print("Updating with settings")
-        #Base settings
+        # Base settings
         self.api_url = obs.obs_data_get_string(settings, "api_url")
         self.refresh_rate = obs.obs_data_get_int(settings, "refresh_rate")
 
-        #Settings for the follower alert
+        # Settings for the follower alert
         self.follower_alert_use = obs.obs_data_get_bool(settings, "follower_alert_use")
         self.follower_alert_time = obs.obs_data_get_int(settings, "follower_alert_time")
         self.follower_alert_uname_source = obs.obs_data_get_string(settings, "follower_alert_uname_source")
         self.follower_alert_scene_source = obs.obs_data_get_string(settings, "follower_alert_scene_source")
 
-        #Settings for the subscriber alert
+        # Settings for the subscriber alert
         self.subscriber_alert_use = obs.obs_data_get_bool(settings, "subscriber_alert_use")
         self.subscriber_alert_time = obs.obs_data_get_int(settings, "subscriber_alert_time")
         self.subscriber_alert_uname_source = obs.obs_data_get_string(settings, "subscriber_alert_uname_source")
         self.subscriber_alert_amount_source = obs.obs_data_get_int(settings, "subscriber_alert_amount_source")
         self.subscriber_alert_scene_source = obs.obs_data_get_string(settings, "subscriber_alert_scene_source")
 
-        #Settings for the rant alert
+        # Settings for the rant alert
         self.rant_alert_use = obs.obs_data_get_bool(settings, "rant_alert_use")
         self.rant_alert_time = obs.obs_data_get_int(settings, "rant_alert_time")
         self.rant_alert_uname_source = obs.obs_data_get_string(settings, "rant_alert_uname_source")
@@ -252,28 +306,24 @@ class OBSRumLiveAlerts():
         self.rant_alert_amount_source = obs.obs_data_get_int(settings, "rant_alert_amount_source")
         self.rant_alert_scene_source = obs.obs_data_get_string(settings, "rant_alert_scene_source")
 
-        #Deactivate timers and remove old livestream reference
-        print("Removing timers")
-        obs.timer_remove(self.refresh_alert_inboxes)
-        obs.timer_remove(self.next_follower_alert)
-        obs.timer_remove(self.next_subscriber_alert)
-        obs.timer_remove(self.next_rant_alert)
+        # Deactivate timers and remove old livestream reference
+        self.remove_obs_timers()
         self.livestream = None
 
-        #We have an API URL
+        # We have an API URL
         if self.api_url:
             try:
-                #We had no API before
+                # We had no API before
                 if not self.api:
                     print("Creating new Cocorum API object")
-                    self.api = cocorum.RumbleAPI(self.api_url, refresh_rate = self.refresh_rate - 0.5)
+                    self.api = cocorum.RumbleAPI(self.api_url, refresh_rate=self.refresh_rate)
 
-                #We do have an API but the URL is outdated
+                # We do have an API but the URL is outdated
                 elif self.api.api_url != self.api_url:
                     print("Updating Cocorum API URL")
                     self.api.api_url = self.api_url
 
-            #The API URL was invalid
+            # The API URL was invalid
             except (AssertionError, cocorum.requests.exceptions.RequestException) as e:
                 print(f"API connection failed: {e}")
                 self.api_url = ""
@@ -281,24 +331,19 @@ class OBSRumLiveAlerts():
 
             self.livestream = self.api.latest_livestream
 
-            #Clear these mailboxes
-            self.api.new_followers
-            self.api.new_subscribers
+            # Clear these mailboxes
+            print("Stale new followers: ", self.api.new_followers)
+            print("Stale new subscribers: ", self.api.new_subscribers)
             if self.livestream:
-                print("Clearing new rants inbox")
-                self.livestream.chat.new_rants
+                print("Stale new rants: ", self.livestream.chat.new_rants)
 
-            print("Activating timers")
-            obs.timer_add(self.refresh_alert_inboxes, self.refresh_rate * 1000)
-            obs.timer_add(self.next_follower_alert, self.follower_alert_time * 1000)
-            obs.timer_add(self.next_subscriber_alert, self.subscriber_alert_time * 1000)
-            obs.timer_add(self.next_rant_alert, self.rant_alert_time * 1000)
+            self.set_obs_timers()
 
         print("Script settings updated.")
 
     def refresh_alert_inboxes(self):
         """Check if there are any new alertables and add them to the inboxes"""
-        #We have no API URL or it was invalid
+        # We have no API URL or it was invalid
         if not self.api_url:
             return
 
@@ -306,166 +351,179 @@ class OBSRumLiveAlerts():
         self.current_scene_name = obs.obs_source_get_name(current_scene)
         obs.obs_source_release(current_scene)
 
-        self.follower_inbox += self.api.new_followers
+        for new_follower in self.api.new_followers:
+            self.follower_inbox.put(new_follower)
 
-        self.subscriber_inbox += self.api.new_subscribers
+        for new_subscriber in self.api.new_subscribers:
+            self.subscriber_inbox.put(new_subscriber)
 
-        #No livestream yet
+        # No livestream yet
         if not self.livestream:
-            #Keep checking until we have a livestream
+            # Keep checking until we have a livestream
             self.livestream = self.api.latest_livestream
             return
 
-        self.rant_inbox += self.livestream.chat.new_rants
+        # There is a livestream, so it may have new rants
+        for new_rant in self.livestream.chat.new_rants:
+            self.rant_inbox.put(new_rant)
 
     def next_follower_alert(self):
         """Do the next follower alert, finishing up the last one"""
-        #No current scene gotten yet
+        # No current scene gotten yet
         if not self.current_scene_name:
             return
 
         try:
             subscene = self.scene_items_by_name[self.current_scene_name][self.rant_alert_scene_source]
-        except KeyError: #Scene selection or scene items table is invalid
+        except KeyError:  # Scene selection or scene items table is invalid
             return
 
-        #Finish up the last follower alert
+        # Finish up the last follower alert
         if obs.obs_sceneitem_visible(subscene):
             obs.obs_sceneitem_set_visible(subscene, False)
             print("Finished follower alert.")
 
-        #No new followers
-        if not self.follower_inbox:
+        # Check for a new follower
+        try:
+            follower = self.follower_inbox.get_nowait()
+
+        # If there is none, exit
+        except QueueEmpty:
             return
 
-        follower = self.follower_inbox.pop(0)
         print(f"New follower: {follower}")
-        #There is no follower alert scene in the current scene
+        # There is no follower alert scene in the current scene
         if self.follower_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
             print("Follower scene not present in", self.current_scene_name)
             return
 
-        #We are set to not do follower alerts
+        # We are set to not do follower alerts
         if not self.follower_alert_use:
             print("Follower alerts are disabled.")
             return
 
-        #Set the text
+        # Set the text
         print("Setting text")
         f_uname_set = obs.obs_data_create()
         obs.obs_data_set_string(f_uname_set, "text", follower.username)
         obs.obs_source_update(self.sources_by_name[self.follower_alert_uname_source], f_uname_set)
         obs.obs_data_release(f_uname_set)
 
-        #Show the alert
+        # Show the alert
         print("Showing alert")
         obs.obs_sceneitem_set_visible(subscene, True)
 
-        #Wait for alert to finish hide transition as well (DOES NOT WORK)
-        #print("Waiting for hide transition")
-        #time.sleep(obs.obs_sceneitem_get_hide_transition_duration(subscene) / 1000)
+        # Wait for alert to finish hide transition as well (DOES NOT WORK)
+        # print("Waiting for hide transition")
+        # time.sleep(obs.obs_sceneitem_get_hide_transition_duration(subscene) / 1000)
 
     def next_subscriber_alert(self):
         """Do the next subscriber alert, finishing up the last one"""
-        #No current scene gotten yet
+        # No current scene gotten yet
         if not self.current_scene_name:
             return
 
         try:
             subscene = self.scene_items_by_name[self.current_scene_name][self.rant_alert_scene_source]
-        except KeyError: #Scene selection or scene items table is invalid
+        except KeyError:  # Scene selection or scene items table is invalid
             return
 
-        #Finish up the last subscriber alert
+        # Finish up the last subscriber alert
         if obs.obs_sceneitem_visible(subscene):
             obs.obs_sceneitem_set_visible(subscene, False)
             print("Finished subscriber alert.")
 
-        #No new subscribers
-        if not self.subscriber_inbox:
+        # Check for a new subscriber
+        try:
+            subscriber = self.subscriber_inbox.get_nowait()
+
+        # If there is none, exit
+        except QueueEmpty:
             return
 
-        subscriber = self.subscriber_inbox.pop(0)
         print(f"New subscriber: {subscriber}")
-        #There is no subscriber alert scene in the current scene
+        # There is no subscriber alert scene in the current scene
         if self.subscriber_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
             print("Subscriber scene not present in", self.current_scene_name)
             return
 
-        #We are set to not do subscriber alerts
+        # We are set to not do subscriber alerts
         if not self.subscriber_alert_use:
             print("Subscriber alerts are disabled.")
             return
 
-        #Set the userame text
+        # Set the userame text
         s_uname_set = obs.obs_data_create()
         obs.obs_data_set_string(s_uname_set, "text", subscriber.username)
         obs.obs_source_update(self.sources_by_name[self.subscriber_alert_uname_source], s_uname_set)
         obs.obs_data_release(s_uname_set)
 
-        #Set the amount text
+        # Set the amount text
         s_amount_set = obs.obs_data_create()
         obs.obs_data_set_string(s_amount_set, "text", f"${subscriber.amount_cents:.2}")
         obs.obs_source_update(self.sources_by_name[self.subscriber_alert_amount_source], s_amount_set)
         obs.obs_data_release(s_amount_set)
 
-        #Show the alert
+        # Show the alert
         subscene = self.scene_items_by_name[self.current_scene_name][self.subscriber_alert_scene_source]
         obs.obs_sceneitem_set_visible(subscene, True)
 
     def next_rant_alert(self):
         """Do the next rant alert, finishing up the last one"""
-        #No current scene gotten yet
+        # No current scene gotten yet
         if not self.current_scene_name:
             return
 
         try:
             subscene = self.scene_items_by_name[self.current_scene_name][self.rant_alert_scene_source]
-        except KeyError: #Scene selection or scene items table is invalid
+        except KeyError:  # Scene selection or scene items table is invalid
             return
 
-        #Finish up the last rant alert
+        # Finish up the last rant alert
         if obs.obs_sceneitem_visible(subscene):
             obs.obs_sceneitem_set_visible(subscene, False)
             print("Finished rant alert.")
 
-        #No new rants
-        if not self.rant_inbox:
+        # Check for a new rant
+        try:
+            rant = self.rant_inbox.get_nowait()
+        # If there is none, exit
+        except QueueEmpty:
             return
 
-        rant = self.rant_inbox.pop(0)
         print(f"New rant: {rant}")
-        #There is no rant alert scene in the current scene
+        # There is no rant alert scene in the current scene
         if self.rant_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
             print("Rant scene not present in", self.current_scene_name)
             return
 
-        #We are set to not do rant alerts
+        # We are set to not do rant alerts
         if not self.rant_alert_use:
             print("Rant alerts are disabled.")
             return
 
-        #Set the userame text
+        # Set the userame text
         r_uname_set = obs.obs_data_create()
         obs.obs_data_set_string(r_uname_set, "text", rant.username)
         obs.obs_source_update(self.sources_by_name[self.rant_alert_uname_source], r_uname_set)
         obs.obs_data_release(r_uname_set)
 
-        #Set the message text
+        # Set the message text
         r_message_set = obs.obs_data_create()
         obs.obs_data_set_string(r_message_set, "text", rant.text)
         obs.obs_source_update(self.sources_by_name[self.rant_alert_message_source], r_message_set)
         obs.obs_data_release(r_message_set)
 
-        #Set the amount text
+        # Set the amount text
         r_amount_set = obs.obs_data_create()
         obs.obs_data_set_string(r_amount_set, "text", f"${rant.amount_cents:.2}")
         obs.obs_source_update(self.sources_by_name[self.rant_alert_amount_source], r_amount_set)
         obs.obs_data_release(r_amount_set)
 
-        #Show the alert
+        # Show the alert
         subscene = self.scene_items_by_name[self.current_scene_name][self.rant_alert_scene_source]
         obs.obs_sceneitem_set_visible(subscene, True)
+
 
 rla = OBSRumLiveAlerts()
 print("RLA initialized.")
