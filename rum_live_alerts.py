@@ -55,10 +55,9 @@ class OBSRumLiveAlerts():
         self.livestream = None
 
         self.props = None
-        self.sources_by_name = {}
-        self.scenes_by_name = {}
-        self.scene_items_by_name = {}
+        self.scene_names = []
         self.subscene_names = []
+        self.source_names_and_types = {}
         self.current_scene_name = ""
 
         # Inboxes of things waiting to be alerted for
@@ -148,52 +147,22 @@ class OBSRumLiveAlerts():
     def script_unload(self):
         """Perform script cleanup"""
         print("Unload triggered. Cleaning up")
-        # Erase OBS-linked data
-        self.release_old_sns_data()
 
         # Deactivate timers and remove old livestream reference
         self.remove_obs_timers()
         self.livestream = None
         print("Unloaded.")
 
-    def release_old_sns_data(self):
-        """Release and erase old scenes and sources data"""
-        print("Releasing old scenes and sources data")
-
-        print("Releasing sources")
-        for source in self.sources_by_name.values():
-            obs.obs_source_release(source)
-        self.sources_by_name = {}
-
-        print("Releasing scenes")
-        for scene in self.scenes_by_name.values():
-            obs.obs_scene_release(scene)
-        self.scenes_by_name = {}
-
-        print("Releasing scene items")
-        for item_dict in self.scene_items_by_name.values():
-            for item in item_dict.values():
-                obs.obs_sceneitem_release(item)
-        self.scene_items_by_name = {}
-
-        # self.subscene_names = []
-
-        print("Released.")
-
     def get_scenes_and_sources(self):
         """Get listing of OBS scenes and scene item sources"""
-        print("Getting scenes and sources data.")
-        # Release the old values
-        self.release_old_sns_data()
+        print("Getting scenes and sources...")
 
         print("Enumerating non-subscene sources")
         # Sources that are not subscenes
         sources = obs.obs_enum_sources()
         if sources:
             print("Getting non-subscene source names")
-            self.sources_by_name = {obs.obs_source_get_name(s): s for s in sources}
-            for source in self.sources_by_name.values():
-                obs.obs_source_addref(source)
+            self.source_names_and_types = {obs.obs_source_get_name(s): obs.obs_source_get_unversioned_id(s) for s in sources}
             print("Releasing source list")
             obs.source_list_release(sources)
         else:
@@ -202,47 +171,46 @@ class OBSRumLiveAlerts():
         print("Getting all scenes (as sources for some reason)")
         scene_sources = obs.obs_frontend_get_scenes()
         if scene_sources:
-            print("Getting scenes by name")
-            self.scenes_by_name = {obs.obs_source_get_name(s): obs.obs_scene_from_source(s) for s in scene_sources}
+            print("Getting scene names")
+            self.scene_names = [obs.obs_source_get_name(s) for s in scene_sources]
             print("Releasing scene sources list")
             obs.source_list_release(scene_sources)
         else:
             print("No scenes found.")
 
         print("Evaluating which scenes are subscenes")
-        for scene_name, scene in self.scenes_by_name.items():
+        self.subscene_names = []
+        for scene_name in self.scene_names:
             print(scene_name + ":")
             #print("\t(getting scene items)")
+            scene = obs.obs_get_scene_by_name(scene_name)
             scene_items = obs.obs_scene_enum_items(scene)
-            self.scene_items_by_name[scene_name] = {}
             if scene_items:
                 for item in scene_items:
                     # Get scene item as source and name
                     #print("\t(getting source of scene item)")
+                    # Does not increment the reference, do not independently release
                     source = obs.obs_sceneitem_get_source(item)
                     #print("\t(getting source name)")
                     name = obs.obs_source_get_name(source)
 
-                    # Store scene item source by name
-                    #print("\t(adding reference)")
-                    obs.obs_sceneitem_addref(item)
-                    self.scene_items_by_name[scene_name][name] = item
-
                     # Is this item a subscene source?
                     #print("\t(identifying source type)")
-                    unversioned_id = obs.obs_source_get_unversioned_id(source)
+                    # If this is not a subscene source, we will have a record of it already
+                    unversioned_id = self.source_names_and_types.get(name) or obs.obs_source_get_unversioned_id(source)
                     if unversioned_id == "scene":
                         print(f"\t{unversioned_id}: {name} <--")
                         self.subscene_names.append(name)
                     else:
                         print(f"\t{unversioned_id}: {name}")
                     #print("\t(releasing that source)\n")
-                    obs.obs_source_release(source)
+                    # obs.obs_source_release(source)
 
-                print("Releasing scene items list")
+                #print("Releasing scene items list")
                 obs.sceneitem_list_release(scene_items)
             else:
                 print("\t--No items in this scene--")
+            obs.obs_scene_release(scene)
 
     def script_properties(self):
         """Set up the configuration properties for this script"""
@@ -280,9 +248,7 @@ class OBSRumLiveAlerts():
         rant_scene_prop = obs.obs_properties_add_list(self.props, "rant_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 
         print("Adding all text display sources to the text display selectors")
-        for source_name, source in self.sources_by_name.items():
-            source_id = obs.obs_source_get_unversioned_id(source)
-
+        for source_name, source_id in self.source_names_and_types.items():
             # Source is a text display, add it to text source selectors
             if source_id in ("text_gdiplus", "text_ft2_source"):
                 obs.obs_property_list_add_string(follower_uname_prop, source_name, source_name)
@@ -397,7 +363,9 @@ class OBSRumLiveAlerts():
             return
 
         try:
-            subscene = self.scene_items_by_name[self.current_scene_name][self.follower_alert_scene_source]
+            # current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
+            subscene = obs.obs_get_source_by_name(self.follower_alert_scene_source)
+
         except KeyError:  # Scene selection or scene items table is invalid
             return
 
@@ -412,29 +380,37 @@ class OBSRumLiveAlerts():
 
         # If there is none, exit
         except QueueEmpty:
+            obs.obs_source_release(subscene)
             return
 
         print(f"New follower: {follower}")
         # There is no follower alert scene in the current scene
-        if self.follower_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
-            print("Follower scene not present in", self.current_scene_name)
-            return
+        # Do we even need to check this?
+        #if self.follower_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
+        #    print("Follower scene not present in", self.current_scene_name)
+        #    return
 
         # We are set to not do follower alerts
         if not self.follower_alert_use:
             print("Follower alerts are disabled.")
+            obs.obs_source_release(subscene)
             return
 
         # Set the text
         print("Setting text")
         f_uname_set = obs.obs_data_create()
+        f_uname_source = obs.obs_get_source_by_name(self.follower_alert_uname_source)
+
         obs.obs_data_set_string(f_uname_set, "text", follower.username)
-        obs.obs_source_update(self.sources_by_name[self.follower_alert_uname_source], f_uname_set)
+        obs.obs_source_update(f_uname_source, f_uname_set)
+
         obs.obs_data_release(f_uname_set)
+        obs.obs_source_release(f_uname_source)
 
         # Show the alert
         print("Showing alert")
         obs.obs_sceneitem_set_visible(subscene, True)
+        obs.obs_source_release(subscene)
 
         # Wait for alert to finish hide transition as well (DOES NOT WORK)
         # print("Waiting for hide transition")
@@ -447,7 +423,8 @@ class OBSRumLiveAlerts():
             return
 
         try:
-            subscene = self.scene_items_by_name[self.current_scene_name][self.subscriber_alert_scene_source]
+            # current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
+            subscene = obs.obs_get_source_by_name(self.follower_alert_scene_source)
         except KeyError:  # Scene selection or scene items table is invalid
             return
 
@@ -462,34 +439,44 @@ class OBSRumLiveAlerts():
 
         # If there is none, exit
         except QueueEmpty:
+            obs.obs_source_release(subscene)
             return
 
         print(f"New subscriber: {subscriber}")
         # There is no subscriber alert scene in the current scene
-        if self.subscriber_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
-            print("Subscriber scene not present in", self.current_scene_name)
-            return
+        # if self.subscriber_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
+        #     print("Subscriber scene not present in", self.current_scene_name)
+        #     return
 
         # We are set to not do subscriber alerts
         if not self.subscriber_alert_use:
             print("Subscriber alerts are disabled.")
+            obs.obs_source_release(subscene)
             return
 
         # Set the userame text
         s_uname_set = obs.obs_data_create()
+        s_uname_source = obs.obs_get_source_by_name(self.subscriber_alert_uname_source)
+
         obs.obs_data_set_string(s_uname_set, "text", subscriber.username)
-        obs.obs_source_update(self.sources_by_name[self.subscriber_alert_uname_source], s_uname_set)
+        obs.obs_source_update(s_uname_source, s_uname_set)
+
         obs.obs_data_release(s_uname_set)
+        obs.obs_source_release(s_uname_source)
 
         # Set the amount text
         s_amount_set = obs.obs_data_create()
+        s_amount_source = obs.obs_get_source_by_name(self.subscriber_alert_amount_source)
+
         obs.obs_data_set_string(s_amount_set, "text", f"${subscriber.amount_cents:.2f}")
-        obs.obs_source_update(self.sources_by_name[self.subscriber_alert_amount_source], s_amount_set)
+        obs.obs_source_update(s_amount_source, s_amount_set)
+
         obs.obs_data_release(s_amount_set)
+        obs.obs_source_release(s_amount_source)
 
         # Show the alert
-        subscene = self.scene_items_by_name[self.current_scene_name][self.subscriber_alert_scene_source]
         obs.obs_sceneitem_set_visible(subscene, True)
+        obs.obs_source_release(subscene)
 
     def next_rant_alert(self):
         """Do the next rant alert, finishing up the last one"""
@@ -498,7 +485,8 @@ class OBSRumLiveAlerts():
             return
 
         try:
-            subscene = self.scene_items_by_name[self.current_scene_name][self.rant_alert_scene_source]
+            # current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
+            subscene = obs.obs_get_source_by_name(self.follower_alert_scene_source)
         except KeyError:  # Scene selection or scene items table is invalid
             return
 
@@ -512,40 +500,54 @@ class OBSRumLiveAlerts():
             rant = self.rant_inbox.get_nowait()
         # If there is none, exit
         except QueueEmpty:
+            obs.obs_source_release(subscene)
             return
 
         print(f"New rant: {rant}")
         # There is no rant alert scene in the current scene
-        if self.rant_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
-            print("Rant scene not present in", self.current_scene_name)
-            return
+        # if self.rant_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
+        #     print("Rant scene not present in", self.current_scene_name)
+        #     return
 
         # We are set to not do rant alerts
         if not self.rant_alert_use:
             print("Rant alerts are disabled.")
+            obs.obs_source_release(subscene)
             return
 
         # Set the userame text
         r_uname_set = obs.obs_data_create()
+        r_uname_source = obs.obs_get_source_by_name(self.rant_alert_uname_source)
+
         obs.obs_data_set_string(r_uname_set, "text", rant.username)
-        obs.obs_source_update(self.sources_by_name[self.rant_alert_uname_source], r_uname_set)
+        obs.obs_source_update(r_uname_source, r_uname_set)
+
         obs.obs_data_release(r_uname_set)
+        obs.obs_source_release(r_uname_source)
 
         # Set the message text
         r_message_set = obs.obs_data_create()
+        r_message_source = obs.obs_get_source_by_name(self.rant_alert_message_source)
+
         obs.obs_data_set_string(r_message_set, "text", rant.text)
-        obs.obs_source_update(self.sources_by_name[self.rant_alert_message_source], r_message_set)
+        obs.obs_source_update(r_message_source, r_message_set)
+
         obs.obs_data_release(r_message_set)
+        obs.obs_source_release(r_message_source)
 
         # Set the amount text
         r_amount_set = obs.obs_data_create()
+        r_amount_source = obs.obs_get_source_by_name(self.rant_alert_amount_source)
+
         obs.obs_data_set_string(r_amount_set, "text", f"${rant.amount_cents:.2}")
-        obs.obs_source_update(self.sources_by_name[self.rant_alert_amount_source], r_amount_set)
+        obs.obs_source_update(r_amount_source, r_amount_set)
+
         obs.obs_data_release(r_amount_set)
+        obs.obs_source_release(r_amount_source)
 
         # Show the alert
-        subscene = self.scene_items_by_name[self.current_scene_name][self.rant_alert_scene_source]
         obs.obs_sceneitem_set_visible(subscene, True)
+        obs.obs_source_release(subscene)
 
 
 rla = OBSRumLiveAlerts()
