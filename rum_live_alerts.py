@@ -195,9 +195,9 @@ class OBSRumLiveAlerts():
             for source in self.sources_by_name.values():
                 obs.obs_source_addref(source)
             print("Releasing source list")
+            obs.source_list_release(sources)
         else:
             print("No sources found.")
-        obs.source_list_release(sources)
 
         print("Getting all scenes (as sources for some reason)")
         scene_sources = obs.obs_frontend_get_scenes()
@@ -205,38 +205,44 @@ class OBSRumLiveAlerts():
             print("Getting scenes by name")
             self.scenes_by_name = {obs.obs_source_get_name(s): obs.obs_scene_from_source(s) for s in scene_sources}
             print("Releasing scene sources list")
+            obs.source_list_release(scene_sources)
         else:
             print("No scenes found.")
-        obs.source_list_release(scene_sources)
 
         print("Evaluating which scenes are subscenes")
         for scene_name, scene in self.scenes_by_name.items():
             print(scene_name + ":")
+            #print("\t(getting scene items)")
             scene_items = obs.obs_scene_enum_items(scene)
             self.scene_items_by_name[scene_name] = {}
             if scene_items:
                 for item in scene_items:
                     # Get scene item as source and name
+                    #print("\t(getting source of scene item)")
                     source = obs.obs_sceneitem_get_source(item)
+                    #print("\t(getting source name)")
                     name = obs.obs_source_get_name(source)
 
                     # Store scene item source by name
+                    #print("\t(adding reference)")
                     obs.obs_sceneitem_addref(item)
                     self.scene_items_by_name[scene_name][name] = item
 
                     # Is this item a subscene source?
+                    #print("\t(identifying source type)")
                     unversioned_id = obs.obs_source_get_unversioned_id(source)
                     if unversioned_id == "scene":
                         print(f"\t{unversioned_id}: {name} <--")
                         self.subscene_names.append(name)
                     else:
                         print(f"\t{unversioned_id}: {name}")
+                    #print("\t(releasing that source)\n")
                     obs.obs_source_release(source)
 
                 print("Releasing scene items list")
+                obs.sceneitem_list_release(scene_items)
             else:
                 print("\t--No items in this scene--")
-            obs.sceneitem_list_release(scene_items)
 
     def script_properties(self):
         """Set up the configuration properties for this script"""
