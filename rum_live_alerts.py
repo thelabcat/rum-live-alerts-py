@@ -332,6 +332,7 @@ class OBSRumLiveAlerts():
 
     def refresh_alert_inboxes(self):
         """Check if there are any new alertables and add them to the inboxes"""
+        print("Refreshing alert inboxes")
         # We have no API URL or it was invalid
         if not self.api_url:
             return
@@ -358,6 +359,7 @@ class OBSRumLiveAlerts():
 
     def next_follower_alert(self):
         """Do the next follower alert, finishing up the last one"""
+        print("Doing follower alert tick")
         # No current scene gotten yet
         if not self.current_scene_name:
             return
@@ -365,11 +367,11 @@ class OBSRumLiveAlerts():
         current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
         #subscene_source = obs.obs_get_source_by_name(self.follower_alert_scene_source)
 
-        #TODO: Are we actually supposed to release this?
+        #This is a borrowed pointer from the scene. Release the scene to release it.
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.follower_alert_scene_source)
-        obs.obs_scene_release(current_scene)
 
         if not subscene_sceneitem:
+            obs.obs_scene_release(current_scene)
             print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.follower_alert_scene_source}'")
             return
 
@@ -384,7 +386,7 @@ class OBSRumLiveAlerts():
 
         # If there is none, exit
         except QueueEmpty:
-            obs.obs_sceneitem_release(subscene_sceneitem)
+            obs.obs_scene_release(current_scene)
             return
 
         print(f"New follower: {follower}")
@@ -397,7 +399,7 @@ class OBSRumLiveAlerts():
         # We are set to not do follower alerts
         if not self.follower_alert_use:
             print("Follower alerts are disabled.")
-            obs.obs_sceneitem_release(subscene_sceneitem)
+            obs.obs_scene_release(current_scene)
             return
 
         # Set the text
@@ -414,7 +416,7 @@ class OBSRumLiveAlerts():
         # Show the alert
         print("Showing alert")
         obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
-        obs.obs_sceneitem_release(subscene_sceneitem)
+        obs.obs_scene_release(current_scene)
 
         # Wait for alert to finish hide transition as well (DOES NOT WORK)
         # print("Waiting for hide transition")
@@ -422,15 +424,16 @@ class OBSRumLiveAlerts():
 
     def next_subscriber_alert(self):
         """Do the next subscriber alert, finishing up the last one"""
+        print("Doing subscriber alert tick")
         # No current scene gotten yet
         if not self.current_scene_name:
             return
 
         current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.subscriber_alert_scene_source)
-        obs.obs_scene_release(current_scene)
 
         if not subscene_sceneitem:
+            obs.obs_scene_release(current_scene)
             print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.subscriber_alert_scene_source}'")
             return
 
@@ -445,7 +448,7 @@ class OBSRumLiveAlerts():
 
         # If there is none, exit
         except QueueEmpty:
-            obs.obs_sceneitem_release(subscene_sceneitem)
+            obs.obs_scene_release(current_scene)
             return
 
         print(f"New subscriber: {subscriber}")
@@ -457,7 +460,7 @@ class OBSRumLiveAlerts():
         # We are set to not do subscriber alerts
         if not self.subscriber_alert_use:
             print("Subscriber alerts are disabled.")
-            obs.obs_sceneitem_release(subscene_sceneitem)
+            obs.obs_scene_release(current_scene)
             return
 
         # Set the userame text
@@ -482,19 +485,20 @@ class OBSRumLiveAlerts():
 
         # Show the alert
         obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
-        obs.obs_sceneitem_release(subscene_sceneitem)
+        obs.obs_scene_release(current_scene)
 
     def next_rant_alert(self):
         """Do the next rant alert, finishing up the last one"""
+        print("Doing rant alert tick")
         # No current scene gotten yet
         if not self.current_scene_name:
             return
 
         current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.rant_alert_scene_source)
-        obs.obs_scene_release(current_scene)
 
         if not subscene_sceneitem:
+            obs.obs_scene_release(current_scene)
             print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.rant_alert_scene_source}'")
             return
 
@@ -508,7 +512,7 @@ class OBSRumLiveAlerts():
             rant = self.rant_inbox.get_nowait()
         # If there is none, exit
         except QueueEmpty:
-            obs.obs_sceneitem_release(subscene_sceneitem)
+            obs.obs_scene_release(current_scene)
             return
 
         print(f"New rant: {rant}")
@@ -520,7 +524,7 @@ class OBSRumLiveAlerts():
         # We are set to not do rant alerts
         if not self.rant_alert_use:
             print("Rant alerts are disabled.")
-            obs.obs_sceneitem_release(subscene_sceneitem)
+            obs.obs_scene_release(current_scene)
             return
 
         # Set the userame text
@@ -555,7 +559,7 @@ class OBSRumLiveAlerts():
 
         # Show the alert
         obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
-        obs.obs_sceneitem_release(subscene_sceneitem)
+        obs.obs_scene_release(current_scene)
 
 
 rla = OBSRumLiveAlerts()
