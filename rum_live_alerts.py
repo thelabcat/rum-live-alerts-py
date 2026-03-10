@@ -377,15 +377,16 @@ class OBSRumLiveAlerts():
         """Do the next follower alert, finishing up the last one"""
         print("Doing follower alert tick")
 
-        current_scene = obs.obs_frontend_get_current_scene()
-        current_scene_name = obs.obs_source_get_name(current_scene)
-        # This is a borrowed pointer from the scene. Release the scene to release it.
+        current_scenesource = obs.obs_frontend_get_current_scene()  # returns obs_source_t
+
+        # These do not increase the refcounter, release the above instead
+        current_scene = obs.obs_scene_from_source(current_scenesource)
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.follower_alert_scene_source)
 
         try:
 
             if not subscene_sceneitem:
-                print(f"Current scene '{current_scene_name}' does not contain scene '{self.follower_alert_scene_source}'")
+                print(f"Current scene '{obs.obs_source_get_name(current_scene)}' does not contain scene '{self.follower_alert_scene_source}'")
                 return
 
             # Finish up the last follower alert
@@ -426,19 +427,21 @@ class OBSRumLiveAlerts():
 
         # Wherever we returned within the try block, we must release the scene and unlock
         finally:
-            obs.obs_scene_release(current_scene)
+            obs.obs_source_release(current_scenesource)
 
     def next_subscriber_alert(self):
         """Do the next subscriber alert, finishing up the last one"""
         print("Doing subscriber alert tick")
 
-        current_scene = obs.obs_frontend_get_current_scene()
-        current_scene_name = obs.obs_source_get_name(current_scene)
+        current_scenesource = obs.obs_frontend_get_current_scene()  # returns obs_source_t
+
+        # These do not increase the refcounter, release the above instead
+        current_scene = obs.obs_scene_from_source(current_scenesource)
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.subscriber_alert_scene_source)
 
         try:
             if not subscene_sceneitem:
-                print(f"Current scene '{current_scene_name}' does not contain scene '{self.subscriber_alert_scene_source}'")
+                print(f"Current scene '{obs.obs_source_get_name(current_scene)}' does not contain scene '{self.subscriber_alert_scene_source}'")
                 return
 
             # Finish up the last subscriber alert
@@ -477,19 +480,21 @@ class OBSRumLiveAlerts():
             obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
 
         finally:
-            obs.obs_scene_release(current_scene)
+            obs.obs_source_release(current_scenesource)
 
     def next_rant_alert(self):
         """Do the next rant alert, finishing up the last one"""
         print("Doing rant alert tick")
 
-        current_scene = obs.obs_frontend_get_current_scene()
-        current_scene_name = obs.obs_source_get_name(current_scene)
+        current_scenesource = obs.obs_frontend_get_current_scene()  # returns obs_source_t
+
+        # These do not increase the refcounter, release the above instead
+        current_scene = obs.obs_scene_from_source(current_scenesource)
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.rant_alert_scene_source)
 
         try:
             if not subscene_sceneitem:
-                print(f"Current scene '{current_scene_name}' does not contain scene '{self.rant_alert_scene_source}'")
+                print(f"Current scene '{obs.obs_source_get_name(current_scene)}' does not contain scene '{self.rant_alert_scene_source}'")
                 return
 
             # Finish up the last rant alert
@@ -531,7 +536,7 @@ class OBSRumLiveAlerts():
             obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
 
         finally:
-            obs.obs_scene_release(current_scene)
+            obs.obs_source_release(current_scenesource)
 
 
 rla = OBSRumLiveAlerts()
