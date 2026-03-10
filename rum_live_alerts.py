@@ -60,7 +60,6 @@ class OBSRumLiveAlerts():
         self.scene_names = []
         self.subscene_names = []
         self.source_names_and_types = {}
-        self.current_scene_name = ""
 
         # Inboxes of things waiting to be alerted for
         self.follower_inbox = Queue()
@@ -129,7 +128,7 @@ class OBSRumLiveAlerts():
             print("ERROR: Timers already set.")
             return
         self.__obs_timers_set = True
-        obs.timer_add(self.refresh_alert_inboxes, self.refresh_rate * 1000)
+        obs.timer_add(self.check_main_rls_api, self.refresh_rate * 1000)
         obs.timer_add(self.next_follower_alert, self.follower_alert_time * 1000)
         obs.timer_add(self.next_subscriber_alert, self.subscriber_alert_time * 1000)
         obs.timer_add(self.next_rant_alert, self.rant_alert_time * 1000)
@@ -141,7 +140,7 @@ class OBSRumLiveAlerts():
             print("ERROR: Timers were not set.")
             return
         self.__obs_timers_set = False
-        obs.timer_remove(self.refresh_alert_inboxes)
+        obs.timer_remove(self.check_main_rls_api)
         obs.timer_remove(self.next_follower_alert)
         obs.timer_remove(self.next_subscriber_alert)
         obs.timer_remove(self.next_rant_alert)
@@ -351,16 +350,12 @@ class OBSRumLiveAlerts():
         obs.obs_data_release(setter_data)
         obs.obs_source_release(source)
 
-    def refresh_alert_inboxes(self):
-        """Check if there are any new alertables and add them to the inboxes"""
+    def check_main_rls_api(self):
+        """Check if there are any new alertables in the main RLS API and add them to the inboxes"""
         print("Refreshing alert inboxes")
         # We have no API URL or it was invalid
         if not self.api_url:
             return
-
-        current_scene = obs.obs_frontend_get_current_scene()
-        self.current_scene_name = obs.obs_source_get_name(current_scene)
-        obs.obs_source_release(current_scene)
 
         for new_follower in self.api.new_followers:
             self.follower_inbox.put(new_follower)
@@ -381,18 +376,16 @@ class OBSRumLiveAlerts():
     def next_follower_alert(self):
         """Do the next follower alert, finishing up the last one"""
         print("Doing follower alert tick")
-        # No current scene gotten yet
-        if not self.current_scene_name:
-            return
 
-        current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
+        current_scene = obs.obs_frontend_get_current_scene()
+        current_scene_name = obs.obs_source_get_name(current_scene)
         # This is a borrowed pointer from the scene. Release the scene to release it.
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.follower_alert_scene_source)
 
         try:
 
             if not subscene_sceneitem:
-                print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.follower_alert_scene_source}'")
+                print(f"Current scene '{current_scene_name}' does not contain scene '{self.follower_alert_scene_source}'")
                 return
 
             # Finish up the last follower alert
@@ -438,16 +431,14 @@ class OBSRumLiveAlerts():
     def next_subscriber_alert(self):
         """Do the next subscriber alert, finishing up the last one"""
         print("Doing subscriber alert tick")
-        # No current scene gotten yet
-        if not self.current_scene_name:
-            return
 
-        current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
+        current_scene = obs.obs_frontend_get_current_scene()
+        current_scene_name = obs.obs_source_get_name(current_scene)
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.subscriber_alert_scene_source)
 
         try:
             if not subscene_sceneitem:
-                print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.subscriber_alert_scene_source}'")
+                print(f"Current scene '{current_scene_name}' does not contain scene '{self.subscriber_alert_scene_source}'")
                 return
 
             # Finish up the last subscriber alert
@@ -491,16 +482,14 @@ class OBSRumLiveAlerts():
     def next_rant_alert(self):
         """Do the next rant alert, finishing up the last one"""
         print("Doing rant alert tick")
-        # No current scene gotten yet
-        if not self.current_scene_name:
-            return
 
-        current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
+        current_scene = obs.obs_frontend_get_current_scene()
+        current_scene_name = obs.obs_source_get_name(current_scene)
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.rant_alert_scene_source)
 
         try:
             if not subscene_sceneitem:
-                print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.rant_alert_scene_source}'")
+                print(f"Current scene '{current_scene_name}' does not contain scene '{self.rant_alert_scene_source}'")
                 return
 
             # Finish up the last rant alert
