@@ -382,7 +382,7 @@ class OBSRumLiveAlerts():
             return
 
         # Alerts must not happen at the same time
-        lock = self.alerts_mutex.lock(blocking=False)
+        lock = self.alerts_mutex.acquire(blocking=False)
         if not lock:
             print("Another alert is in progress, nevermind.")
             return
@@ -428,7 +428,7 @@ class OBSRumLiveAlerts():
         # Wherever we returned within the try block, we must release the scene and unlock
         finally:
             obs.obs_scene_release(current_scene)
-            self.alerts_mutex.unlock()
+            self.alerts_mutex.release()
 
     def next_subscriber_alert(self):
         """Do the next subscriber alert, finishing up the last one"""
@@ -438,7 +438,7 @@ class OBSRumLiveAlerts():
             return
 
         # Alerts must not happen at the same time
-        lock = self.alerts_mutex.lock(blocking=False)
+        lock = self.alerts_mutex.acquire(blocking=False)
         if not lock:
             print("Another alert is in progress, nevermind.")
             return
@@ -482,7 +482,7 @@ class OBSRumLiveAlerts():
 
         finally:
             obs.obs_scene_release(current_scene)
-            self.alerts_mutex.unlock()
+            self.alerts_mutex.release()
 
     def next_rant_alert(self):
         """Do the next rant alert, finishing up the last one"""
@@ -492,7 +492,7 @@ class OBSRumLiveAlerts():
             return
 
         # Alerts must not happen at the same time
-        lock = self.alerts_mutex.lock(blocking=False)
+        lock = self.alerts_mutex.acquire(blocking=False)
         if not lock:
             print("Another alert is in progress, nevermind.")
             return
@@ -538,7 +538,7 @@ class OBSRumLiveAlerts():
 
         finally:
             obs.obs_scene_release(current_scene)
-            self.alerts_mutex.unlock()
+            self.alerts_mutex.release()
 
 
 rla = OBSRumLiveAlerts()
