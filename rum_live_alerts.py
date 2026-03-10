@@ -4,7 +4,7 @@
 Live alerts for your Rumble livestream.
 S.D.G."""
 
-from queue import Queue, Empty as QueueEmpty
+from queue import Queue
 import threading
 import obspython as obs
 import cocorum
