@@ -5,6 +5,7 @@ Live alerts for your Rumble livestream.
 S.D.G."""
 
 from queue import Queue, Empty as QueueEmpty
+import threading
 import obspython as obs
 import cocorum
 
@@ -51,6 +52,7 @@ class OBSRumLiveAlerts():
         """Instanced once within script as a reliable memory system"""
         print("Initializing OBSRumLiveAlerts object")
         self.__obs_timers_set = False
+        self.alerts_mutex = threading.Lock()
         self.api = None
         self.livestream = None
 
@@ -364,63 +366,66 @@ class OBSRumLiveAlerts():
         if not self.current_scene_name:
             return
 
-        current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
-        #subscene_source = obs.obs_get_source_by_name(self.follower_alert_scene_source)
+        # Alerts must not happen at the same time
+        lock = self.alerts_mutex.lock(blocking=False)
+        if not lock:
+            print("Another alert is in progress, nevermind.")
+            return
 
-        #This is a borrowed pointer from the scene. Release the scene to release it.
+        current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
+        # This is a borrowed pointer from the scene. Release the scene to release it.
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.follower_alert_scene_source)
 
-        if not subscene_sceneitem:
-            obs.obs_scene_release(current_scene)
-            print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.follower_alert_scene_source}'")
-            return
-
-        # Finish up the last follower alert
-        if obs.obs_sceneitem_visible(subscene_sceneitem):
-            obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
-            print("Finished follower alert.")
-
-        # Check for a new follower
         try:
-            follower = self.follower_inbox.get_nowait()
 
-        # If there is none, exit
-        except QueueEmpty:
+            if not subscene_sceneitem:
+                print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.follower_alert_scene_source}'")
+                return
+
+            # Finish up the last follower alert
+            if obs.obs_sceneitem_visible(subscene_sceneitem):
+                obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
+                print("Finished follower alert.")
+
+            # Check for a new follower
+            try:
+                follower = self.follower_inbox.get_nowait()
+
+            # If there is none, exit
+            except QueueEmpty:
+                return
+
+            print(f"New follower: {follower}")
+            # There is no follower alert scene in the current scene
+            # Do we even need to check this?
+            #if self.follower_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
+            #    print("Follower scene not present in", self.current_scene_name)
+            #    return
+
+            # We are set to not do follower alerts
+            if not self.follower_alert_use:
+                print("Follower alerts are disabled.")
+                return
+
+            # Set the text
+            print("Setting text")
+            f_uname_set = obs.obs_data_create()
+            f_uname_source = obs.obs_get_source_by_name(self.follower_alert_uname_source)
+
+            obs.obs_data_set_string(f_uname_set, "text", follower.username)
+            obs.obs_source_update(f_uname_source, f_uname_set)
+
+            obs.obs_data_release(f_uname_set)
+            obs.obs_source_release(f_uname_source)
+
+            # Show the alert
+            print("Showing alert")
+            obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
+
+        # Wherever we returned within the try block, we must release the scene and unlock
+        finally:
             obs.obs_scene_release(current_scene)
-            return
-
-        print(f"New follower: {follower}")
-        # There is no follower alert scene in the current scene
-        # Do we even need to check this?
-        #if self.follower_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
-        #    print("Follower scene not present in", self.current_scene_name)
-        #    return
-
-        # We are set to not do follower alerts
-        if not self.follower_alert_use:
-            print("Follower alerts are disabled.")
-            obs.obs_scene_release(current_scene)
-            return
-
-        # Set the text
-        print("Setting text")
-        f_uname_set = obs.obs_data_create()
-        f_uname_source = obs.obs_get_source_by_name(self.follower_alert_uname_source)
-
-        obs.obs_data_set_string(f_uname_set, "text", follower.username)
-        obs.obs_source_update(f_uname_source, f_uname_set)
-
-        obs.obs_data_release(f_uname_set)
-        obs.obs_source_release(f_uname_source)
-
-        # Show the alert
-        print("Showing alert")
-        obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
-        obs.obs_scene_release(current_scene)
-
-        # Wait for alert to finish hide transition as well (DOES NOT WORK)
-        # print("Waiting for hide transition")
-        # time.sleep(obs.obs_sceneitem_get_hide_transition_duration(subscene) / 1000)
+            self.alerts_mutex.unlock()
 
     def next_subscriber_alert(self):
         """Do the next subscriber alert, finishing up the last one"""
@@ -429,63 +434,70 @@ class OBSRumLiveAlerts():
         if not self.current_scene_name:
             return
 
+        # Alerts must not happen at the same time
+        lock = self.alerts_mutex.lock(blocking=False)
+        if not lock:
+            print("Another alert is in progress, nevermind.")
+            return
+
         current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.subscriber_alert_scene_source)
 
-        if not subscene_sceneitem:
-            obs.obs_scene_release(current_scene)
-            print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.subscriber_alert_scene_source}'")
-            return
-
-        # Finish up the last subscriber alert
-        if obs.obs_sceneitem_visible(subscene_sceneitem):
-            obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
-            print("Finished subscriber alert.")
-
-        # Check for a new subscriber
         try:
-            subscriber = self.subscriber_inbox.get_nowait()
+            if not subscene_sceneitem:
+                print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.subscriber_alert_scene_source}'")
+                return
 
-        # If there is none, exit
-        except QueueEmpty:
+            # Finish up the last subscriber alert
+            if obs.obs_sceneitem_visible(subscene_sceneitem):
+                obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
+                print("Finished subscriber alert.")
+
+            # Check for a new subscriber
+            try:
+                subscriber = self.subscriber_inbox.get_nowait()
+
+            # If there is none, exit
+            except QueueEmpty:
+                return
+
+            print(f"New subscriber: {subscriber}")
+            # There is no subscriber alert scene in the current scene
+            # if self.subscriber_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
+            #     print("Subscriber scene not present in", self.current_scene_name)
+            #     return
+
+            # We are set to not do subscriber alerts
+            if not self.subscriber_alert_use:
+                print("Subscriber alerts are disabled.")
+                return
+
+            # Set the userame text
+            s_uname_set = obs.obs_data_create()
+            s_uname_source = obs.obs_get_source_by_name(self.subscriber_alert_uname_source)
+
+            obs.obs_data_set_string(s_uname_set, "text", subscriber.username)
+            obs.obs_source_update(s_uname_source, s_uname_set)
+
+            obs.obs_data_release(s_uname_set)
+            obs.obs_source_release(s_uname_source)
+
+            # Set the amount text
+            s_amount_set = obs.obs_data_create()
+            s_amount_source = obs.obs_get_source_by_name(self.subscriber_alert_amount_source)
+
+            obs.obs_data_set_string(s_amount_set, "text", f"${subscriber.amount_cents:.2f}")
+            obs.obs_source_update(s_amount_source, s_amount_set)
+
+            obs.obs_data_release(s_amount_set)
+            obs.obs_source_release(s_amount_source)
+
+            # Show the alert
+            obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
+
+        finally:
             obs.obs_scene_release(current_scene)
-            return
-
-        print(f"New subscriber: {subscriber}")
-        # There is no subscriber alert scene in the current scene
-        # if self.subscriber_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
-        #     print("Subscriber scene not present in", self.current_scene_name)
-        #     return
-
-        # We are set to not do subscriber alerts
-        if not self.subscriber_alert_use:
-            print("Subscriber alerts are disabled.")
-            obs.obs_scene_release(current_scene)
-            return
-
-        # Set the userame text
-        s_uname_set = obs.obs_data_create()
-        s_uname_source = obs.obs_get_source_by_name(self.subscriber_alert_uname_source)
-
-        obs.obs_data_set_string(s_uname_set, "text", subscriber.username)
-        obs.obs_source_update(s_uname_source, s_uname_set)
-
-        obs.obs_data_release(s_uname_set)
-        obs.obs_source_release(s_uname_source)
-
-        # Set the amount text
-        s_amount_set = obs.obs_data_create()
-        s_amount_source = obs.obs_get_source_by_name(self.subscriber_alert_amount_source)
-
-        obs.obs_data_set_string(s_amount_set, "text", f"${subscriber.amount_cents:.2f}")
-        obs.obs_source_update(s_amount_source, s_amount_set)
-
-        obs.obs_data_release(s_amount_set)
-        obs.obs_source_release(s_amount_source)
-
-        # Show the alert
-        obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
-        obs.obs_scene_release(current_scene)
+            self.alerts_mutex.unlock()
 
     def next_rant_alert(self):
         """Do the next rant alert, finishing up the last one"""
@@ -494,72 +506,79 @@ class OBSRumLiveAlerts():
         if not self.current_scene_name:
             return
 
+        # Alerts must not happen at the same time
+        lock = self.alerts_mutex.lock(blocking=False)
+        if not lock:
+            print("Another alert is in progress, nevermind.")
+            return
+
         current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.rant_alert_scene_source)
 
-        if not subscene_sceneitem:
-            obs.obs_scene_release(current_scene)
-            print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.rant_alert_scene_source}'")
-            return
-
-        # Finish up the last rant alert
-        if obs.obs_sceneitem_visible(subscene_sceneitem):
-            obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
-            print("Finished rant alert.")
-
-        # Check for a new rant
         try:
-            rant = self.rant_inbox.get_nowait()
-        # If there is none, exit
-        except QueueEmpty:
+            if not subscene_sceneitem:
+                print(f"Current scene '{self.current_scene_name}' does not contain scene '{self.rant_alert_scene_source}'")
+                return
+
+            # Finish up the last rant alert
+            if obs.obs_sceneitem_visible(subscene_sceneitem):
+                obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
+                print("Finished rant alert.")
+
+            # Check for a new rant
+            try:
+                rant = self.rant_inbox.get_nowait()
+            # If there is none, exit
+            except QueueEmpty:
+                return
+
+            print(f"New rant: {rant}")
+            # There is no rant alert scene in the current scene
+            # if self.rant_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
+            #     print("Rant scene not present in", self.current_scene_name)
+            #     return
+
+            # We are set to not do rant alerts
+            if not self.rant_alert_use:
+                print("Rant alerts are disabled.")
+                return
+
+            # Set the userame text
+            r_uname_set = obs.obs_data_create()
+            r_uname_source = obs.obs_get_source_by_name(self.rant_alert_uname_source)
+
+            obs.obs_data_set_string(r_uname_set, "text", rant.username)
+            obs.obs_source_update(r_uname_source, r_uname_set)
+
+            obs.obs_data_release(r_uname_set)
+            obs.obs_source_release(r_uname_source)
+
+            # Set the message text
+            r_message_set = obs.obs_data_create()
+            r_message_source = obs.obs_get_source_by_name(self.rant_alert_message_source)
+
+            obs.obs_data_set_string(r_message_set, "text", rant.text)
+            obs.obs_source_update(r_message_source, r_message_set)
+
+            obs.obs_data_release(r_message_set)
+            obs.obs_source_release(r_message_source)
+
+            # Set the amount text
+            r_amount_set = obs.obs_data_create()
+            r_amount_source = obs.obs_get_source_by_name(self.rant_alert_amount_source)
+
+            obs.obs_data_set_string(r_amount_set, "text", f"${rant.amount_cents:.2}")
+            obs.obs_source_update(r_amount_source, r_amount_set)
+
+            obs.obs_data_release(r_amount_set)
+            obs.obs_source_release(r_amount_source)
+
+            # Show the alert
+            obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
+
+        finally:
             obs.obs_scene_release(current_scene)
-            return
-
-        print(f"New rant: {rant}")
-        # There is no rant alert scene in the current scene
-        # if self.rant_alert_scene_source not in self.scene_items_by_name[self.current_scene_name]:
-        #     print("Rant scene not present in", self.current_scene_name)
-        #     return
-
-        # We are set to not do rant alerts
-        if not self.rant_alert_use:
-            print("Rant alerts are disabled.")
-            obs.obs_scene_release(current_scene)
-            return
-
-        # Set the userame text
-        r_uname_set = obs.obs_data_create()
-        r_uname_source = obs.obs_get_source_by_name(self.rant_alert_uname_source)
-
-        obs.obs_data_set_string(r_uname_set, "text", rant.username)
-        obs.obs_source_update(r_uname_source, r_uname_set)
-
-        obs.obs_data_release(r_uname_set)
-        obs.obs_source_release(r_uname_source)
-
-        # Set the message text
-        r_message_set = obs.obs_data_create()
-        r_message_source = obs.obs_get_source_by_name(self.rant_alert_message_source)
-
-        obs.obs_data_set_string(r_message_set, "text", rant.text)
-        obs.obs_source_update(r_message_source, r_message_set)
-
-        obs.obs_data_release(r_message_set)
-        obs.obs_source_release(r_message_source)
-
-        # Set the amount text
-        r_amount_set = obs.obs_data_create()
-        r_amount_source = obs.obs_get_source_by_name(self.rant_alert_amount_source)
-
-        obs.obs_data_set_string(r_amount_set, "text", f"${rant.amount_cents:.2}")
-        obs.obs_source_update(r_amount_source, r_amount_set)
-
-        obs.obs_data_release(r_amount_set)
-        obs.obs_source_release(r_amount_source)
-
-        # Show the alert
-        obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
-        obs.obs_scene_release(current_scene)
+            self.alerts_mutex.unlock()
 
 
 rla = OBSRumLiveAlerts()
