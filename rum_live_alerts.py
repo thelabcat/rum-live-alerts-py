@@ -153,6 +153,10 @@ class OBSRumLiveAlerts():
         # Deactivate timers and remove old livestream reference
         self.remove_obs_timers()
         self.livestream = None
+        if self.alerts_mutex.locked():
+            print("WARNING: Releasing alerts mutex.")
+            self.alerts_mutex.release()
+
         print("Unloaded.")
 
     def get_scenes_and_sources(self):
@@ -381,12 +385,6 @@ class OBSRumLiveAlerts():
         if not self.current_scene_name:
             return
 
-        # Alerts must not happen at the same time
-        lock = self.alerts_mutex.acquire(blocking=False)
-        if not lock:
-            print("Another alert is in progress, nevermind.")
-            return
-
         current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
         # This is a borrowed pointer from the scene. Release the scene to release it.
         subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.follower_alert_scene_source)
@@ -400,21 +398,29 @@ class OBSRumLiveAlerts():
             # Finish up the last follower alert
             if obs.obs_sceneitem_visible(subscene_sceneitem):
                 obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
+                self.alerts_mutex.release()
                 print("Finished follower alert.")
 
             # Check for a new follower
-            try:
-                follower = self.follower_inbox.get_nowait()
-
-            # If there is none, exit
-            except QueueEmpty:
+            if self.follower_inbox.empty():
                 return
+
+            # We have a follower
+
+            # Alerts must not happen at the same time
+            lock = self.alerts_mutex.acquire(blocking=False)
+            if not lock:
+                print("Another alert is in progress. Wait.")
+                return
+
+            follower = self.follower_inbox.get()
 
             print(f"New follower: {follower}")
 
             # We are set to not do follower alerts
             if not self.follower_alert_use:
                 print("Follower alerts are disabled.")
+                self.alerts_mutex.release()
                 return
 
             # Set the text
@@ -428,19 +434,12 @@ class OBSRumLiveAlerts():
         # Wherever we returned within the try block, we must release the scene and unlock
         finally:
             obs.obs_scene_release(current_scene)
-            self.alerts_mutex.release()
 
     def next_subscriber_alert(self):
         """Do the next subscriber alert, finishing up the last one"""
         print("Doing subscriber alert tick")
         # No current scene gotten yet
         if not self.current_scene_name:
-            return
-
-        # Alerts must not happen at the same time
-        lock = self.alerts_mutex.acquire(blocking=False)
-        if not lock:
-            print("Another alert is in progress, nevermind.")
             return
 
         current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
@@ -454,21 +453,27 @@ class OBSRumLiveAlerts():
             # Finish up the last subscriber alert
             if obs.obs_sceneitem_visible(subscene_sceneitem):
                 obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
+                self.alerts_mutex.release()
                 print("Finished subscriber alert.")
 
             # Check for a new subscriber
-            try:
-                subscriber = self.subscriber_inbox.get_nowait()
-
-            # If there is none, exit
-            except QueueEmpty:
+            if self.subscriber_inbox.empty():
                 return
 
+            # We have a subscriber
+            # Alerts must not happen at the same time
+            lock = self.alerts_mutex.acquire(blocking=False)
+            if not lock:
+                print("Another alert is in progress. Wait.")
+                return
+
+            subscriber = self.subscriber_inbox.get()
             print(f"New subscriber: {subscriber}")
 
             # We are set to not do subscriber alerts
             if not self.subscriber_alert_use:
                 print("Subscriber alerts are disabled.")
+                self.alerts_mutex.release()
                 return
 
             # Set the userame text
@@ -482,19 +487,12 @@ class OBSRumLiveAlerts():
 
         finally:
             obs.obs_scene_release(current_scene)
-            self.alerts_mutex.release()
 
     def next_rant_alert(self):
         """Do the next rant alert, finishing up the last one"""
         print("Doing rant alert tick")
         # No current scene gotten yet
         if not self.current_scene_name:
-            return
-
-        # Alerts must not happen at the same time
-        lock = self.alerts_mutex.acquire(blocking=False)
-        if not lock:
-            print("Another alert is in progress, nevermind.")
             return
 
         current_scene = obs.obs_get_scene_by_name(self.current_scene_name)
@@ -508,20 +506,27 @@ class OBSRumLiveAlerts():
             # Finish up the last rant alert
             if obs.obs_sceneitem_visible(subscene_sceneitem):
                 obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
+                self.alerts_mutex.release()
                 print("Finished rant alert.")
 
             # Check for a new rant
-            try:
-                rant = self.rant_inbox.get_nowait()
-            # If there is none, exit
-            except QueueEmpty:
+            if self.rant_inbox.empty():
                 return
 
+            # We have a rant
+            # Alerts must not happen at the same time
+            lock = self.alerts_mutex.acquire(blocking=False)
+            if not lock:
+                print("Another alert is in progress. Wait.")
+                return
+
+            rant = self.rant_inbox.get()
             print(f"New rant: {rant}")
 
             # We are set to not do rant alerts
             if not self.rant_alert_use:
                 print("Rant alerts are disabled.")
+                self.alerts_mutex.release()
                 return
 
             # Set the userame text
@@ -538,7 +543,6 @@ class OBSRumLiveAlerts():
 
         finally:
             obs.obs_scene_release(current_scene)
-            self.alerts_mutex.release()
 
 
 rla = OBSRumLiveAlerts()
