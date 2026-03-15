@@ -455,6 +455,7 @@ class OBSRumLiveAlerts():
         # Livestream change handler
         # Current stream is no longer live
         if self.livestream and not self.livestream.is_live:
+            print("Livestream shut down.")
             self.livestream = None
             self.abandon_chat_alert_receiver()
 
@@ -467,6 +468,7 @@ class OBSRumLiveAlerts():
         # We have no livestream [anymore] and there is one live
         if not self.livestream and (new := self.api.latest_livestream):
             self.livestream = new
+            print("New livestream:", self.livestream.title)
             self.chat_alert_receiver = ChatAlertReceiver(
                 self.livestream.stream_id,
                 self.rant_inbox,
