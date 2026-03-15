@@ -54,7 +54,7 @@ class DefaultSettings:
 class ChatAlertReceiver(threading.Thread):
     """Connect to a Rumble chat, and push message alerts from it to queues"""
 
-    def __init__(self, stream_id: int | str, raid_queue: Queue):
+    def __init__(self, stream_id: int | str, rant_queue: Queue, raid_queue: Queue):
         """
         Connect to a Rumble chat, and push alerts from it to queues
 
@@ -67,6 +67,7 @@ class ChatAlertReceiver(threading.Thread):
         self.chat = cocorum.chatapi.ChatAPI(stream_id)
         self.chat.clear_mailbox()
 
+        self.rant_queue = rant_queue
         self.raid_queue = raid_queue
 
         # Thread-safe killswitch
@@ -81,6 +82,11 @@ class ChatAlertReceiver(threading.Thread):
             if not message:
                 print("Chat", self.chat.stream_id_b10, "closed.")
                 self.running = False
+                continue
+
+            # The message is a rant
+            if message.is_rant:
+                self.rant_queue.put(message)
                 continue
 
             # The message is a raid
@@ -414,7 +420,11 @@ class OBSRumLiveAlerts():
             if self.livestream:
                 print("Stale new rants: ", self.livestream.chat.new_rants)
                 # Set up the chat alert receiver, only if we have a livestream
-                self.chat_alert_receiver = ChatAlertReceiver(self.livestream.stream_id, self.raid_inbox)
+                self.chat_alert_receiver = ChatAlertReceiver(
+                    self.livestream.stream_id,
+                    self.rant_inbox,
+                    self.raid_inbox,
+                    )
                 self.chat_alert_receiver.start()
 
             self.set_obs_timers()
@@ -456,8 +466,9 @@ class OBSRumLiveAlerts():
             return
 
         # There is a livestream, so it may have new rants
-        for new_rant in self.livestream.chat.new_rants:
-            self.rant_inbox.put(new_rant)
+        # Handle this in the chat alert receiver instead
+        #for new_rant in self.livestream.chat.new_rants:
+        #    self.rant_inbox.put(new_rant)
 
     def next_follower_alert(self):
         """Do the next follower alert, finishing up the last one"""
@@ -610,13 +621,13 @@ class OBSRumLiveAlerts():
                 return
 
             # Set the userame text
-            self.set_text_by_source_name(self.rant_alert_uname_source, rant.username)
+            self.set_text_by_source_name(self.rant_alert_uname_source, rant.user.username)
 
             # Set the message text
             self.set_text_by_source_name(self.rant_alert_message_source, rant.text)
 
             # Set the amount text
-            self.set_text_by_source_name(self.rant_alert_amount_source, f"${rant.amount_cents:.2}")
+            self.set_text_by_source_name(self.rant_alert_amount_source, f"${rant.rant_price_cents:.2}")
 
             # Show the alert
             obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
