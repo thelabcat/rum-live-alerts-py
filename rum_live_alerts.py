@@ -44,6 +44,50 @@ class DefaultSettings:
     rant_alert_amount_source = "Rant Amount Dollars"
     rant_alert_scene_source = "Rant Scene"
 
+    # Settings for the raid alert
+    raid_alert_use = True
+    raid_alert_time = 10
+    raid_alert_uname_source = "Raid Username"
+    raid_alert_scene_source = "Raid Scene"
+
+
+class ChatAlertReceiver(threading.Thread):
+    """Connect to a Rumble chat, and push message alerts from it to queues"""
+
+    def __init__(self, stream_id: int | str, raid_queue: Queue):
+        """
+        Connect to a Rumble chat, and push alerts from it to queues
+
+        Args:
+            stream_id (int | str): The numeric ID of the stream to connect to.
+            raid_queue (Queue): The queue to push raid alerts to."""
+
+        super().__init__(self, daemon=True)
+
+        self.chat = cocorum.chatapi.ChatAPI(stream_id)
+        self.chat.clear_mailbox()
+
+        self.raid_queue = raid_queue
+
+        # Thread-safe killswitch
+        self.running = False
+
+    def run(self):
+        """The threaded code"""
+        self.running = True
+        while self.running:
+            # The chat closed, gracefully exit
+            message = self.chat.get_message()
+            if not message:
+                print("Chat", self.chat.stream_id_b10, "closed.")
+                self.running = False
+                continue
+
+            # The message is a raid
+            if message.raid_notification:
+                self.raid_queue.put(message)
+                continue
+
 
 class OBSRumLiveAlerts():
     """OBS Rumble live alerts system"""
@@ -55,6 +99,7 @@ class OBSRumLiveAlerts():
         self.alerts_mutex = threading.Lock()
         self.api = None
         self.livestream = None
+        self.chat_alert_receiver = None
 
         self.props = None
         self.scene_names = []
@@ -65,6 +110,7 @@ class OBSRumLiveAlerts():
         self.follower_inbox = Queue()
         self.subscriber_inbox = Queue()
         self.rant_inbox = Queue()
+        self.raid_inbox = Queue()
 
         # Base settings
         self.api_url = DefaultSettings.api_url
@@ -90,6 +136,12 @@ class OBSRumLiveAlerts():
         self.rant_alert_message_source = DefaultSettings.rant_alert_message_source
         self.rant_alert_amount_source = DefaultSettings.rant_alert_amount_source
         self.rant_alert_scene_source = DefaultSettings.rant_alert_scene_source
+
+        # Settings for the raid alert
+        self.raid_alert_use = DefaultSettings.raid_alert_use
+        self.raid_alert_time = DefaultSettings.raid_alert_time
+        self.raid_alert_uname_source = DefaultSettings.raid_alert_uname_source
+        self.raid_alert_scene_source = DefaultSettings.raid_alert_scene_source
 
     def script_defaults(self, settings):
         """Set OBS setting defaults"""
@@ -119,6 +171,12 @@ class OBSRumLiveAlerts():
         obs.obs_data_set_default_string(settings, "rant_alert_amount_source", DefaultSettings.rant_alert_amount_source)
         obs.obs_data_set_default_string(settings, "rant_alert_scene_source", DefaultSettings.rant_alert_scene_source)
 
+        # Raid alert settings
+        obs.obs_data_set_default_bool(settings, "raid_alert_use", DefaultSettings.raid_alert_use)
+        obs.obs_data_set_default_int(settings, "raid_alert_time", DefaultSettings.raid_alert_time)
+        obs.obs_data_set_default_string(settings, "raid_alert_uname_source", DefaultSettings.raid_alert_uname_source)
+        obs.obs_data_set_default_string(settings, "raid_alert_scene_source", DefaultSettings.raid_alert_scene_source)
+
         print("script_defaults done")
 
     def set_obs_timers(self):
@@ -132,6 +190,7 @@ class OBSRumLiveAlerts():
         obs.timer_add(self.next_follower_alert, self.follower_alert_time * 1000)
         obs.timer_add(self.next_subscriber_alert, self.subscriber_alert_time * 1000)
         obs.timer_add(self.next_rant_alert, self.rant_alert_time * 1000)
+        obs.timer_add(self.next_raid_alert, self.raid_alert_time * 1000)
 
     def remove_obs_timers(self):
         """Remove all the timers we would set for OBS"""
@@ -144,6 +203,13 @@ class OBSRumLiveAlerts():
         obs.timer_remove(self.next_follower_alert)
         obs.timer_remove(self.next_subscriber_alert)
         obs.timer_remove(self.next_rant_alert)
+        obs.timer_remove(self.next_raid_alert)
+
+    def abandon_chat_alert_receiver(self):
+        """If we have a chat alert receiver, tell it to stop, and remove its reference"""
+        if self.chat_alert_receiver:
+            self.chat_alert_receiver.running = False
+            self.chat_alert_receiver = None
 
     def script_unload(self):
         """Perform script cleanup"""
@@ -152,6 +218,7 @@ class OBSRumLiveAlerts():
         # Deactivate timers and remove old livestream reference
         self.remove_obs_timers()
         self.livestream = None
+        self.abandon_chat_alert_receiver()
         if self.alerts_mutex.locked():
             print("WARNING: Releasing alerts mutex.")
             self.alerts_mutex.release()
@@ -252,6 +319,13 @@ class OBSRumLiveAlerts():
         rant_amount_prop = obs.obs_properties_add_list(self.props, "rant_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         rant_scene_prop = obs.obs_properties_add_list(self.props, "rant_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 
+        # Settings for the raid alert
+        obs.obs_properties_add_text(self.props, "raid_alert_header", "\n--- Raid Alert ---", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_bool(self.props, "raid_alert_use", "Use raid alert")
+        obs.obs_properties_add_int(self.props, "raid_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
+        raid_uname_prop = obs.obs_properties_add_list(self.props, "raid_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        raid_scene_prop = obs.obs_properties_add_list(self.props, "raid_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+
         print("Adding all text display sources to the text display selectors")
         for source_name, source_id in self.source_names_and_types.items():
             # Source is a text display, add it to text source selectors
@@ -262,12 +336,14 @@ class OBSRumLiveAlerts():
                 obs.obs_property_list_add_string(rant_uname_prop, source_name, source_name)
                 obs.obs_property_list_add_string(rant_message_prop, source_name, source_name)
                 obs.obs_property_list_add_string(rant_amount_prop, source_name, source_name)
+                obs.obs_property_list_add_string(raid_uname_prop, source_name, source_name)
 
         print("Adding all subscene sources to the subscene source selectors")
         for subscene_name in self.subscene_names:
             obs.obs_property_list_add_string(follower_scene_prop, subscene_name, subscene_name)
             obs.obs_property_list_add_string(subscriber_scene_prop, subscene_name, subscene_name)
             obs.obs_property_list_add_string(rant_scene_prop, subscene_name, subscene_name)
+            obs.obs_property_list_add_string(raid_scene_prop, subscene_name, subscene_name)
 
         print("Properties initialized.")
         return self.props
@@ -300,9 +376,16 @@ class OBSRumLiveAlerts():
         self.rant_alert_amount_source = obs.obs_data_get_string(settings, "rant_alert_amount_source")
         self.rant_alert_scene_source = obs.obs_data_get_string(settings, "rant_alert_scene_source")
 
+        # Settings for the raid alert
+        self.raid_alert_use = obs.obs_data_get_bool(settings, "raid_alert_use")
+        self.raid_alert_time = obs.obs_data_get_int(settings, "raid_alert_time")
+        self.raid_alert_uname_source = obs.obs_data_get_string(settings, "raid_alert_uname_source")
+        self.raid_alert_scene_source = obs.obs_data_get_string(settings, "raid_alert_scene_source")
+
         # Deactivate timers and remove old livestream reference
         self.remove_obs_timers()
         self.livestream = None
+        self.abandon_chat_alert_receiver()
 
         # We have an API URL
         if self.api_url:
@@ -330,12 +413,15 @@ class OBSRumLiveAlerts():
             print("Stale new subscribers: ", self.api.new_subscribers)
             if self.livestream:
                 print("Stale new rants: ", self.livestream.chat.new_rants)
+                # Set up the chat alert receiver, only if we have a livestream
+                self.chat_alert_receiver = ChatAlertReceiver(self.livestream.stream_id, self.raid_inbox)
+                self.chat_alert_receiver.start()
 
             self.set_obs_timers()
 
         print("Script settings updated.")
 
-    def set_text_by_source_name(source_name: str, new_value: str):
+    def set_text_by_source_name(self, source_name: str, new_value: str):
         """Sets the value of a text source"""
 
         source = obs.obs_get_source_by_name(source_name)
@@ -535,6 +621,62 @@ class OBSRumLiveAlerts():
             # Show the alert
             obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
 
+        finally:
+            obs.obs_source_release(current_scenesource)
+
+    def next_raid_alert(self):
+        """Do the next raid alert, finishing up the last one"""
+        print("Doing raid alert tick")
+
+        current_scenesource = obs.obs_frontend_get_current_scene()  # returns obs_source_t
+
+        # These do not increase the refcounter, release the above instead
+        current_scene = obs.obs_scene_from_source(current_scenesource)
+        subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.raid_alert_scene_source)
+
+        try:
+
+            if not subscene_sceneitem:
+                print(f"Current scene '{obs.obs_source_get_name(current_scene)}' does not contain scene '{self.raid_alert_scene_source}'")
+                return
+
+            # Finish up the last raid alert
+            if obs.obs_sceneitem_visible(subscene_sceneitem):
+                obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
+                self.alerts_mutex.release()
+                print("Finished raid alert.")
+
+            # Check for a new raid
+            if self.raid_inbox.empty():
+                return
+
+            # We have a raid
+
+            # Alerts must not happen at the same time
+            lock = self.alerts_mutex.acquire(blocking=False)
+            if not lock:
+                print("Another alert is in progress. Wait.")
+                return
+
+            raid = self.raid_inbox.get()
+
+            print(f"New raid: {raid}")
+
+            # We are set to not do raid alerts
+            if not self.raid_alert_use:
+                print("Raid alerts are disabled.")
+                self.alerts_mutex.release()
+                return
+
+            # Set the text
+            print("Setting text")
+            self.set_text_by_source_name(self.raid_alert_uname_source, raid.username)
+
+            # Show the alert
+            print("Showing alert")
+            obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
+
+        # Wherever we returned within the try block, we must release the scene and unlock
         finally:
             obs.obs_source_release(current_scenesource)
 
