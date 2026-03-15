@@ -62,7 +62,7 @@ class ChatAlertReceiver(threading.Thread):
             stream_id (int | str): The numeric ID of the stream to connect to.
             raid_queue (Queue): The queue to push raid alerts to."""
 
-        super().__init__(self, daemon=True)
+        super().__init__(daemon=True)
 
         self.chat = cocorum.chatapi.ChatAPI(stream_id)
         self.chat.clear_mailbox()
@@ -441,7 +441,7 @@ class OBSRumLiveAlerts():
 
     def check_main_rls_api(self):
         """Check if there are any new alertables in the main RLS API and add them to the inboxes"""
-        print("Refreshing alert inboxes")
+        print("Checking main RLS API")
         # We have no API URL or it was invalid
         if not self.api_url:
             return
@@ -454,7 +454,7 @@ class OBSRumLiveAlerts():
 
         # Livestream change handler
         # Current stream is no longer live
-        if self.livestream and not self.livestream.is_live:
+        if self.livestream and self.livestream.is_disappeared:
             print("Livestream shut down.")
             self.livestream = None
             self.abandon_chat_alert_receiver()
@@ -494,7 +494,7 @@ class OBSRumLiveAlerts():
         try:
 
             if not subscene_sceneitem:
-                print(f"Current scene '{obs.obs_source_get_name(current_scene)}' does not contain scene '{self.follower_alert_scene_source}'")
+                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{self.follower_alert_scene_source}'")
                 return
 
             # Finish up the last follower alert
@@ -549,7 +549,7 @@ class OBSRumLiveAlerts():
 
         try:
             if not subscene_sceneitem:
-                print(f"Current scene '{obs.obs_source_get_name(current_scene)}' does not contain scene '{self.subscriber_alert_scene_source}'")
+                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{self.subscriber_alert_scene_source}'")
                 return
 
             # Finish up the last subscriber alert
@@ -602,7 +602,7 @@ class OBSRumLiveAlerts():
 
         try:
             if not subscene_sceneitem:
-                print(f"Current scene '{obs.obs_source_get_name(current_scene)}' does not contain scene '{self.rant_alert_scene_source}'")
+                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{self.rant_alert_scene_source}'")
                 return
 
             # Finish up the last rant alert
@@ -659,7 +659,7 @@ class OBSRumLiveAlerts():
         try:
 
             if not subscene_sceneitem:
-                print(f"Current scene '{obs.obs_source_get_name(current_scene)}' does not contain scene '{self.raid_alert_scene_source}'")
+                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{self.raid_alert_scene_source}'")
                 return
 
             # Finish up the last raid alert
