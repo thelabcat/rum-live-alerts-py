@@ -670,7 +670,8 @@ class OBSRumLiveAlerts():
 
             # Set the text
             print("Setting text")
-            self.set_text_by_source_name(self.raid_alert_uname_source, raid.username)
+            # Remember, this raid is a message object
+            self.set_text_by_source_name(self.raid_alert_uname_source, raid.user.username)
 
             # Show the alert
             print("Showing alert")
