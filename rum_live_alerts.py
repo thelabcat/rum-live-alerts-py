@@ -412,20 +412,13 @@ class OBSRumLiveAlerts():
                 self.api_url = ""
                 return
 
-            self.livestream = self.api.latest_livestream
+            # Reset livestream reference
+            self.livestream = None
+            self.abandon_chat_alert_receiver()
 
             # Clear these mailboxes
             print("Stale new followers: ", self.api.new_followers)
             print("Stale new subscribers: ", self.api.new_subscribers)
-            if self.livestream:
-                print("Stale new rants: ", self.livestream.chat.new_rants)
-                # Set up the chat alert receiver, only if we have a livestream
-                self.chat_alert_receiver = ChatAlertReceiver(
-                    self.livestream.stream_id,
-                    self.rant_inbox,
-                    self.raid_inbox,
-                    )
-                self.chat_alert_receiver.start()
 
             self.set_obs_timers()
 
@@ -459,16 +452,32 @@ class OBSRumLiveAlerts():
         for new_subscriber in self.api.new_subscribers:
             self.subscriber_inbox.put(new_subscriber)
 
-        # No livestream yet
-        if not self.livestream:
-            # Keep checking until we have a livestream
-            self.livestream = self.api.latest_livestream
-            return
+        # Livestream change handler
+        # Current stream is no longer live
+        if self.livestream and not self.livestream.is_live:
+            self.livestream = None
+            self.abandon_chat_alert_receiver()
+
+        # Other cases
+        """
+        We have a livestream and it is live: Even if there is a new one, stay here.
+        We do not have a livestream and there is no new one. Do nothing.
+        """
+
+        # We have no livestream [anymore] and there is one live
+        if not self.livestream and (new := self.api.latest_livestream):
+            self.livestream = new
+            self.chat_alert_receiver = ChatAlertReceiver(
+                self.livestream.stream_id,
+                self.rant_inbox,
+                self.raid_inbox,
+                )
+            self.chat_alert_receiver.start()
 
         # There is a livestream, so it may have new rants
         # Handle this in the chat alert receiver instead
-        #for new_rant in self.livestream.chat.new_rants:
-        #    self.rant_inbox.put(new_rant)
+        # for new_rant in self.livestream.chat.new_rants:
+        #     self.rant_inbox.put(new_rant)
 
     def next_follower_alert(self):
         """Do the next follower alert, finishing up the last one"""
