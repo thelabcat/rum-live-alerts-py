@@ -50,11 +50,25 @@ class DefaultSettings:
     raid_alert_uname_source = "Raid Username"
     raid_alert_scene_source = "Raid Scene"
 
+    # Settings for the gift alert
+    gift_alert_use = True
+    gift_alert_time = 10
+    gift_alert_uname_source = "Gift Username"
+    gift_alert_count_source = "Gift Count"
+    gift_alert_amount_source = "Gift Amount Dollars"
+    gift_alert_scene_source = "Gift Scene"
+
 
 class ChatAlertReceiver(threading.Thread):
     """Connect to a Rumble chat, and push message alerts from it to queues"""
 
-    def __init__(self, stream_id: int | str, rant_queue: Queue, raid_queue: Queue):
+    def __init__(
+        self,
+        stream_id: int | str,
+        rant_queue: Queue,
+        raid_queue: Queue,
+        gift_queue: Queue,
+        ):
         """
         Connect to a Rumble chat, and push alerts from it to queues
 
@@ -69,6 +83,7 @@ class ChatAlertReceiver(threading.Thread):
 
         self.rant_queue = rant_queue
         self.raid_queue = raid_queue
+        self.gift_queue = gift_queue
 
         # Thread-safe killswitch
         self.running = False
@@ -94,6 +109,11 @@ class ChatAlertReceiver(threading.Thread):
                 self.raid_queue.put(message)
                 continue
 
+            # The message is a gift purchase
+            if message.gift_purchase_notification:
+                self.gift_queue.put(message)
+                continue
+
 
 class OBSRumLiveAlerts():
     """OBS Rumble live alerts system"""
@@ -117,6 +137,7 @@ class OBSRumLiveAlerts():
         self.subscriber_inbox = Queue()
         self.rant_inbox = Queue()
         self.raid_inbox = Queue()
+        self.gift_inbox = Queue()
 
         # Base settings
         self.api_url = DefaultSettings.api_url
@@ -148,6 +169,14 @@ class OBSRumLiveAlerts():
         self.raid_alert_time = DefaultSettings.raid_alert_time
         self.raid_alert_uname_source = DefaultSettings.raid_alert_uname_source
         self.raid_alert_scene_source = DefaultSettings.raid_alert_scene_source
+
+        # Settings for the gift alert
+        self.gift_alert_use = DefaultSettings.gift_alert_use
+        self.gift_alert_time = DefaultSettings.gift_alert_time
+        self.gift_alert_uname_source = DefaultSettings.gift_alert_uname_source
+        self.gift_alert_count_source = DefaultSettings.gift_alert_count_source
+        self.gift_alert_amount_source = DefaultSettings.gift_alert_amount_source
+        self.gift_alert_scene_source = DefaultSettings.gift_alert_scene_source
 
     def script_defaults(self, settings):
         """Set OBS setting defaults"""
@@ -183,6 +212,14 @@ class OBSRumLiveAlerts():
         obs.obs_data_set_default_string(settings, "raid_alert_uname_source", DefaultSettings.raid_alert_uname_source)
         obs.obs_data_set_default_string(settings, "raid_alert_scene_source", DefaultSettings.raid_alert_scene_source)
 
+        # Gift alert settings
+        obs.obs_data_set_default_bool(settings, "gift_alert_use", DefaultSettings.gift_alert_use)
+        obs.obs_data_set_default_int(settings, "gift_alert_time", DefaultSettings.gift_alert_time)
+        obs.obs_data_set_default_string(settings, "gift_alert_uname_source", DefaultSettings.gift_alert_uname_source)
+        obs.obs_data_set_default_string(settings, "gift_alert_count_source", DefaultSettings.gift_alert_count_source)
+        obs.obs_data_set_default_string(settings, "gift_alert_amount_source", DefaultSettings.gift_alert_amount_source)
+        obs.obs_data_set_default_string(settings, "gift_alert_scene_source", DefaultSettings.gift_alert_scene_source)
+
         print("script_defaults done")
 
     def set_obs_timers(self):
@@ -197,6 +234,7 @@ class OBSRumLiveAlerts():
         obs.timer_add(self.next_subscriber_alert, self.subscriber_alert_time * 1000)
         obs.timer_add(self.next_rant_alert, self.rant_alert_time * 1000)
         obs.timer_add(self.next_raid_alert, self.raid_alert_time * 1000)
+        obs.timer_add(self.next_gift_alert, self.gift_alert_time * 1000)
 
     def remove_obs_timers(self):
         """Remove all the timers we would set for OBS"""
@@ -210,6 +248,7 @@ class OBSRumLiveAlerts():
         obs.timer_remove(self.next_subscriber_alert)
         obs.timer_remove(self.next_rant_alert)
         obs.timer_remove(self.next_raid_alert)
+        obs.timer_remove(self.next_gift_alert)
 
     def abandon_chat_alert_receiver(self):
         """If we have a chat alert receiver, tell it to stop, and remove its reference"""
@@ -332,6 +371,15 @@ class OBSRumLiveAlerts():
         raid_uname_prop = obs.obs_properties_add_list(self.props, "raid_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         raid_scene_prop = obs.obs_properties_add_list(self.props, "raid_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 
+        # Settings for the gift alert
+        obs.obs_properties_add_text(self.props, "gift_alert_header", "\n--- Gift Alert ---", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_bool(self.props, "gift_alert_use", "Use gift alert")
+        obs.obs_properties_add_int(self.props, "gift_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
+        gift_uname_prop = obs.obs_properties_add_list(self.props, "gift_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        gift_count_prop = obs.obs_properties_add_list(self.props, "gift_alert_count_source", "Gift count text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        gift_amount_prop = obs.obs_properties_add_list(self.props, "gift_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        gift_scene_prop = obs.obs_properties_add_list(self.props, "gift_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+
         print("Adding all text display sources to the text display selectors")
         for source_name, source_id in self.source_names_and_types.items():
             # Source is a text display, add it to text source selectors
@@ -343,6 +391,9 @@ class OBSRumLiveAlerts():
                 obs.obs_property_list_add_string(rant_message_prop, source_name, source_name)
                 obs.obs_property_list_add_string(rant_amount_prop, source_name, source_name)
                 obs.obs_property_list_add_string(raid_uname_prop, source_name, source_name)
+                obs.obs_property_list_add_string(gift_uname_prop, source_name, source_name)
+                obs.obs_property_list_add_string(gift_count_prop, source_name, source_name)
+                obs.obs_property_list_add_string(gift_amount_prop, source_name, source_name)
 
         print("Adding all subscene sources to the subscene source selectors")
         for subscene_name in self.subscene_names:
@@ -350,6 +401,7 @@ class OBSRumLiveAlerts():
             obs.obs_property_list_add_string(subscriber_scene_prop, subscene_name, subscene_name)
             obs.obs_property_list_add_string(rant_scene_prop, subscene_name, subscene_name)
             obs.obs_property_list_add_string(raid_scene_prop, subscene_name, subscene_name)
+            obs.obs_property_list_add_string(gift_scene_prop, subscene_name, subscene_name)
 
         print("Properties initialized.")
         return self.props
@@ -387,6 +439,14 @@ class OBSRumLiveAlerts():
         self.raid_alert_time = obs.obs_data_get_int(settings, "raid_alert_time")
         self.raid_alert_uname_source = obs.obs_data_get_string(settings, "raid_alert_uname_source")
         self.raid_alert_scene_source = obs.obs_data_get_string(settings, "raid_alert_scene_source")
+
+        # Settings for the gift alert
+        self.gift_alert_use = obs.obs_data_get_bool(settings, "gift_alert_use")
+        self.gift_alert_time = obs.obs_data_get_int(settings, "gift_alert_time")
+        self.gift_alert_uname_source = obs.obs_data_get_string(settings, "gift_alert_uname_source")
+        self.gift_alert_count_source = obs.obs_data_get_string(settings, "gift_alert_count_source")
+        self.gift_alert_amount_source = obs.obs_data_get_string(settings, "gift_alert_amount_source")
+        self.gift_alert_scene_source = obs.obs_data_get_string(settings, "gift_alert_scene_source")
 
         # Deactivate timers and remove old livestream reference
         self.remove_obs_timers()
@@ -473,6 +533,7 @@ class OBSRumLiveAlerts():
                 self.livestream.stream_id,
                 self.rant_inbox,
                 self.raid_inbox,
+                self.gift_inbox,
                 )
             self.chat_alert_receiver.start()
 
@@ -582,7 +643,7 @@ class OBSRumLiveAlerts():
             self.set_text_by_source_name(self.subscriber_alert_uname_source, subscriber.username)
 
             # Set the amount text
-            self.set_text_by_source_name(self.subscriber_alert_amount_source, f"${subscriber.amount_cents:.2f}")
+            self.set_text_by_source_name(self.subscriber_alert_amount_source, f"${subscriber.amount_cents / 100:.2f}")
 
             # Show the alert
             obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
@@ -638,7 +699,7 @@ class OBSRumLiveAlerts():
             self.set_text_by_source_name(self.rant_alert_message_source, rant.text)
 
             # Set the amount text
-            self.set_text_by_source_name(self.rant_alert_amount_source, f"${rant.rant_price_cents:.2}")
+            self.set_text_by_source_name(self.rant_alert_amount_source, f"${rant.rant_price_cents / 100:.2}")
 
             # Show the alert
             obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
@@ -700,6 +761,62 @@ class OBSRumLiveAlerts():
             obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
 
         # Wherever we returned within the try block, we must release the scene and unlock
+        finally:
+            obs.obs_source_release(current_scenesource)
+
+    def next_gift_alert(self):
+        """Do the next gift alert, finishing up the last one"""
+        print("Doing gift alert tick")
+
+        current_scenesource = obs.obs_frontend_get_current_scene()  # returns obs_source_t
+
+        # These do not increase the refcounter, release the above instead
+        current_scene = obs.obs_scene_from_source(current_scenesource)
+        subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.gift_alert_scene_source)
+
+        try:
+            if not subscene_sceneitem:
+                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{self.gift_alert_scene_source}'")
+                return
+
+            # Finish up the last gift alert
+            if obs.obs_sceneitem_visible(subscene_sceneitem):
+                obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
+                self.alerts_mutex.release()
+                print("Finished gift alert.")
+
+            # Check for a new gift
+            if self.gift_inbox.empty():
+                return
+
+            # We have a gift
+            # Alerts must not happen at the same time
+            lock = self.alerts_mutex.acquire(blocking=False)
+            if not lock:
+                print("Another alert is in progress. Wait.")
+                return
+
+            gift = self.gift_inbox.get()
+            print(f"New gift: {gift}")
+
+            # We are set to not do gift alerts
+            if not self.gift_alert_use:
+                print("Subscriber alerts are disabled.")
+                self.alerts_mutex.release()
+                return
+
+            # Set the userame text
+            self.set_text_by_source_name(self.gift_alert_uname_source, gift.user.username)
+
+            # Set the number of gifts text
+            self.set_text_by_source_name(self.gift_alert_count_source, str(gift.gift_purchase_notification.total_gifts))
+
+            # Set the amount text
+            self.set_text_by_source_name(self.gift_alert_amount_source, f"${gift.amount_cents / 100:.2f}")
+
+            # Show the alert
+            obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
+
         finally:
             obs.obs_source_release(current_scenesource)
 
