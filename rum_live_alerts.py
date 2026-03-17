@@ -68,7 +68,7 @@ class ChatAlertReceiver(threading.Thread):
         rant_queue: Queue,
         raid_queue: Queue,
         gift_queue: Queue,
-        ):
+            ):
         """
         Connect to a Rumble chat, and push alerts from it to queues
 
@@ -221,113 +221,6 @@ class OBSRumLiveAlerts():
         obs.obs_data_set_default_string(settings, "gift_alert_scene_source", DefaultSettings.gift_alert_scene_source)
 
         print("script_defaults done")
-
-    def set_obs_timers(self):
-        """Set all the timers we need in OBS"""
-        print("Activating timers")
-        if self.__obs_timers_set:
-            print("ERROR: Timers already set.")
-            return
-        self.__obs_timers_set = True
-        obs.timer_add(self.check_main_rls_api, self.refresh_rate * 1000)
-        obs.timer_add(self.next_follower_alert, self.follower_alert_time * 1000)
-        obs.timer_add(self.next_subscriber_alert, self.subscriber_alert_time * 1000)
-        obs.timer_add(self.next_rant_alert, self.rant_alert_time * 1000)
-        obs.timer_add(self.next_raid_alert, self.raid_alert_time * 1000)
-        obs.timer_add(self.next_gift_alert, self.gift_alert_time * 1000)
-
-    def remove_obs_timers(self):
-        """Remove all the timers we would set for OBS"""
-        print("Removing timers")
-        if not self.__obs_timers_set:
-            print("ERROR: Timers were not set.")
-            return
-        self.__obs_timers_set = False
-        obs.timer_remove(self.check_main_rls_api)
-        obs.timer_remove(self.next_follower_alert)
-        obs.timer_remove(self.next_subscriber_alert)
-        obs.timer_remove(self.next_rant_alert)
-        obs.timer_remove(self.next_raid_alert)
-        obs.timer_remove(self.next_gift_alert)
-
-    def abandon_chat_alert_receiver(self):
-        """If we have a chat alert receiver, tell it to stop, and remove its reference"""
-        if self.chat_alert_receiver:
-            self.chat_alert_receiver.running = False
-            self.chat_alert_receiver = None
-
-    def script_unload(self):
-        """Perform script cleanup"""
-        print("Unload triggered. Cleaning up")
-
-        # Deactivate timers and remove old livestream reference
-        self.remove_obs_timers()
-        self.livestream = None
-        self.abandon_chat_alert_receiver()
-        if self.alerts_mutex.locked():
-            print("WARNING: Releasing alerts mutex.")
-            self.alerts_mutex.release()
-
-        print("Unloaded.")
-
-    def get_scenes_and_sources(self):
-        """Get listing of OBS scenes and scene item sources"""
-        print("Getting scenes and sources...")
-
-        print("Enumerating non-subscene sources")
-        # Sources that are not subscenes
-        sources = obs.obs_enum_sources()
-        if sources:
-            print("Getting non-subscene source names")
-            self.source_names_and_types = {obs.obs_source_get_name(s): obs.obs_source_get_unversioned_id(s) for s in sources}
-            print("Releasing source list")
-            obs.source_list_release(sources)
-        else:
-            print("No sources found.")
-
-        print("Getting all scenes (as sources for some reason)")
-        scene_sources = obs.obs_frontend_get_scenes()
-        if scene_sources:
-            print("Getting scene names")
-            self.scene_names = [obs.obs_source_get_name(s) for s in scene_sources]
-            print("Releasing scene sources list")
-            obs.source_list_release(scene_sources)
-        else:
-            print("No scenes found.")
-
-        print("Evaluating which scenes are subscenes")
-        self.subscene_names = []
-        for scene_name in self.scene_names:
-            print(scene_name + ":")
-            #print("\t(getting scene items)")
-            scene = obs.obs_get_scene_by_name(scene_name)
-            scene_items = obs.obs_scene_enum_items(scene)
-            if scene_items:
-                for item in scene_items:
-                    # Get scene item as source and name
-                    #print("\t(getting source of scene item)")
-                    # Does not increment the reference, do not independently release
-                    source = obs.obs_sceneitem_get_source(item)
-                    #print("\t(getting source name)")
-                    name = obs.obs_source_get_name(source)
-
-                    # Is this item a subscene source?
-                    #print("\t(identifying source type)")
-                    # If this is not a subscene source, we will have a record of it already
-                    unversioned_id = self.source_names_and_types.get(name) or obs.obs_source_get_unversioned_id(source)
-                    if unversioned_id == "scene":
-                        print(f"\t{unversioned_id}: {name} <--")
-                        self.subscene_names.append(name)
-                    else:
-                        print(f"\t{unversioned_id}: {name}")
-                    #print("\t(releasing that source)\n")
-                    # obs.obs_source_release(source)
-
-                #print("Releasing scene items list")
-                obs.sceneitem_list_release(scene_items)
-            else:
-                print("\t--No items in this scene--")
-            obs.obs_scene_release(scene)
 
     def script_properties(self):
         """Set up the configuration properties for this script"""
@@ -483,6 +376,113 @@ class OBSRumLiveAlerts():
             self.set_obs_timers()
 
         print("Script settings updated.")
+
+    def set_obs_timers(self):
+        """Set all the timers we need in OBS"""
+        print("Activating timers")
+        if self.__obs_timers_set:
+            print("ERROR: Timers already set.")
+            return
+        self.__obs_timers_set = True
+        obs.timer_add(self.check_main_rls_api, self.refresh_rate * 1000)
+        obs.timer_add(self.next_follower_alert, self.follower_alert_time * 1000)
+        obs.timer_add(self.next_subscriber_alert, self.subscriber_alert_time * 1000)
+        obs.timer_add(self.next_rant_alert, self.rant_alert_time * 1000)
+        obs.timer_add(self.next_raid_alert, self.raid_alert_time * 1000)
+        obs.timer_add(self.next_gift_alert, self.gift_alert_time * 1000)
+
+    def remove_obs_timers(self):
+        """Remove all the timers we would set for OBS"""
+        print("Removing timers")
+        if not self.__obs_timers_set:
+            print("ERROR: Timers were not set.")
+            return
+        self.__obs_timers_set = False
+        obs.timer_remove(self.check_main_rls_api)
+        obs.timer_remove(self.next_follower_alert)
+        obs.timer_remove(self.next_subscriber_alert)
+        obs.timer_remove(self.next_rant_alert)
+        obs.timer_remove(self.next_raid_alert)
+        obs.timer_remove(self.next_gift_alert)
+
+    def abandon_chat_alert_receiver(self):
+        """If we have a chat alert receiver, tell it to stop, and remove its reference"""
+        if self.chat_alert_receiver:
+            self.chat_alert_receiver.running = False
+            self.chat_alert_receiver = None
+
+    def script_unload(self):
+        """Perform script cleanup"""
+        print("Unload triggered. Cleaning up")
+
+        # Deactivate timers and remove old livestream reference
+        self.remove_obs_timers()
+        self.livestream = None
+        self.abandon_chat_alert_receiver()
+        if self.alerts_mutex.locked():
+            print("WARNING: Releasing alerts mutex.")
+            self.alerts_mutex.release()
+
+        print("Unloaded.")
+
+    def get_scenes_and_sources(self):
+        """Get listing of OBS scenes and scene item sources"""
+        print("Getting scenes and sources...")
+
+        print("Enumerating non-subscene sources")
+        # Sources that are not subscenes
+        sources = obs.obs_enum_sources()
+        if sources:
+            print("Getting non-subscene source names")
+            self.source_names_and_types = {obs.obs_source_get_name(s): obs.obs_source_get_unversioned_id(s) for s in sources}
+            print("Releasing source list")
+            obs.source_list_release(sources)
+        else:
+            print("No sources found.")
+
+        print("Getting all scenes (as sources for some reason)")
+        scene_sources = obs.obs_frontend_get_scenes()
+        if scene_sources:
+            print("Getting scene names")
+            self.scene_names = [obs.obs_source_get_name(s) for s in scene_sources]
+            print("Releasing scene sources list")
+            obs.source_list_release(scene_sources)
+        else:
+            print("No scenes found.")
+
+        print("Evaluating which scenes are subscenes")
+        self.subscene_names = []
+        for scene_name in self.scene_names:
+            print(scene_name + ":")
+            #print("\t(getting scene items)")
+            scene = obs.obs_get_scene_by_name(scene_name)
+            scene_items = obs.obs_scene_enum_items(scene)
+            if scene_items:
+                for item in scene_items:
+                    # Get scene item as source and name
+                    #print("\t(getting source of scene item)")
+                    # Does not increment the reference, do not independently release
+                    source = obs.obs_sceneitem_get_source(item)
+                    #print("\t(getting source name)")
+                    name = obs.obs_source_get_name(source)
+
+                    # Is this item a subscene source?
+                    #print("\t(identifying source type)")
+                    # If this is not a subscene source, we will have a record of it already
+                    unversioned_id = self.source_names_and_types.get(name) or obs.obs_source_get_unversioned_id(source)
+                    if unversioned_id == "scene":
+                        print(f"\t{unversioned_id}: {name} <--")
+                        self.subscene_names.append(name)
+                    else:
+                        print(f"\t{unversioned_id}: {name}")
+                    #print("\t(releasing that source)\n")
+                    # obs.obs_source_release(source)
+
+                #print("Releasing scene items list")
+                obs.sceneitem_list_release(scene_items)
+            else:
+                print("\t--No items in this scene--")
+            obs.obs_scene_release(scene)
 
     def set_text_by_source_name(self, source_name: str, new_value: str):
         """Sets the value of a text source"""
