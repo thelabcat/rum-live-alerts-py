@@ -55,8 +55,46 @@ class DefaultSettings:
     gift_alert_time = 10
     gift_alert_uname_source = "Gift Username"
     gift_alert_count_source = "Gift Count"
-    gift_alert_amount_source = "Gift Amount Dollars"
+    #gift_alert_amount_source = "Gift Amount Dollars"
     gift_alert_scene_source = "Gift Scene"
+
+
+class TestFollower:
+    """Follower dummy with the same attributes as a real one"""
+    username = "NOBODY"
+
+
+class TestSubscriber:
+    """Subscriber dummy with the same attributes as a real one"""
+    username = "NOBODY"
+    amount_cents = 316
+
+
+class TestRant:
+    """Rant dummy with the same attributes as a real one"""
+    class user:
+        """User dummy sub"""
+        username = "NOBODY"
+    rant_price_cents = 316
+    text = "Soli Deo gloria."
+
+
+class TestRaid:
+    """Raid dummy with the same attributes as a real one"""
+    class user:
+        """User dummy sub"""
+        username = "NOBODY"
+
+
+class TestGift:
+    """Gift dummy with the same attributes as a real one"""
+    class user:
+        """User dummy sub"""
+        username = "NOBODY"
+
+    class gift_purchase_notification:
+        """Gift purchase notification data dummy sub"""
+        total_gifts = 37
 
 
 class ChatAlertReceiver(threading.Thread):
@@ -175,7 +213,7 @@ class OBSRumLiveAlerts():
         self.gift_alert_time = DefaultSettings.gift_alert_time
         self.gift_alert_uname_source = DefaultSettings.gift_alert_uname_source
         self.gift_alert_count_source = DefaultSettings.gift_alert_count_source
-        self.gift_alert_amount_source = DefaultSettings.gift_alert_amount_source
+        #self.gift_alert_amount_source = DefaultSettings.gift_alert_amount_source
         self.gift_alert_scene_source = DefaultSettings.gift_alert_scene_source
 
     def script_defaults(self, settings):
@@ -217,7 +255,7 @@ class OBSRumLiveAlerts():
         obs.obs_data_set_default_int(settings, "gift_alert_time", DefaultSettings.gift_alert_time)
         obs.obs_data_set_default_string(settings, "gift_alert_uname_source", DefaultSettings.gift_alert_uname_source)
         obs.obs_data_set_default_string(settings, "gift_alert_count_source", DefaultSettings.gift_alert_count_source)
-        obs.obs_data_set_default_string(settings, "gift_alert_amount_source", DefaultSettings.gift_alert_amount_source)
+        #obs.obs_data_set_default_string(settings, "gift_alert_amount_source", DefaultSettings.gift_alert_amount_source)
         obs.obs_data_set_default_string(settings, "gift_alert_scene_source", DefaultSettings.gift_alert_scene_source)
 
         print("script_defaults done")
@@ -239,6 +277,8 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_int(self.props, "follower_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         follower_uname_prop = obs.obs_properties_add_list(self.props, "follower_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         follower_scene_prop = obs.obs_properties_add_list(self.props, "follower_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
+        obs.obs_properties_add_button(self.props, "follower_alert_test", "Queue fake follower", test_follower_alert)
 
         # Settings for the subscriber alert
         obs.obs_properties_add_text(self.props, "subscriber_alert_header", "\n--- Subscriber Alert ---", obs.OBS_TEXT_INFO)
@@ -247,6 +287,7 @@ class OBSRumLiveAlerts():
         subscriber_uname_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         subscriber_amount_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         subscriber_scene_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_button(self.props, "subscriber_alert_test", "Queue fake subscriber", test_subscriber_alert)
 
         # Settings for the rant alert
         obs.obs_properties_add_text(self.props, "rant_alert_header", "\n--- Rant Alert ---", obs.OBS_TEXT_INFO)
@@ -256,6 +297,7 @@ class OBSRumLiveAlerts():
         rant_message_prop = obs.obs_properties_add_list(self.props, "rant_alert_message_source", "Message text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         rant_amount_prop = obs.obs_properties_add_list(self.props, "rant_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         rant_scene_prop = obs.obs_properties_add_list(self.props, "rant_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_button(self.props, "rant_alert_test", "Queue fake rant", test_rant_alert)
 
         # Settings for the raid alert
         obs.obs_properties_add_text(self.props, "raid_alert_header", "\n--- Raid Alert ---", obs.OBS_TEXT_INFO)
@@ -263,6 +305,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_int(self.props, "raid_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         raid_uname_prop = obs.obs_properties_add_list(self.props, "raid_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         raid_scene_prop = obs.obs_properties_add_list(self.props, "raid_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_button(self.props, "raid_alert_test", "Queue fake raid", test_raid_alert)
 
         # Settings for the gift alert
         obs.obs_properties_add_text(self.props, "gift_alert_header", "\n--- Gift Alert ---", obs.OBS_TEXT_INFO)
@@ -270,8 +313,9 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_int(self.props, "gift_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         gift_uname_prop = obs.obs_properties_add_list(self.props, "gift_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         gift_count_prop = obs.obs_properties_add_list(self.props, "gift_alert_count_source", "Gift count text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        gift_amount_prop = obs.obs_properties_add_list(self.props, "gift_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        #gift_amount_prop = obs.obs_properties_add_list(self.props, "gift_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         gift_scene_prop = obs.obs_properties_add_list(self.props, "gift_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_button(self.props, "gift_alert_test", "Queue fake gift", test_gift_alert)
 
         print("Adding all text display sources to the text display selectors")
         for source_name, source_id in self.source_names_and_types.items():
@@ -286,7 +330,7 @@ class OBSRumLiveAlerts():
                 obs.obs_property_list_add_string(raid_uname_prop, source_name, source_name)
                 obs.obs_property_list_add_string(gift_uname_prop, source_name, source_name)
                 obs.obs_property_list_add_string(gift_count_prop, source_name, source_name)
-                obs.obs_property_list_add_string(gift_amount_prop, source_name, source_name)
+                #obs.obs_property_list_add_string(gift_amount_prop, source_name, source_name)
 
         print("Adding all subscene sources to the subscene source selectors")
         for subscene_name in self.subscene_names:
@@ -338,7 +382,7 @@ class OBSRumLiveAlerts():
         self.gift_alert_time = obs.obs_data_get_int(settings, "gift_alert_time")
         self.gift_alert_uname_source = obs.obs_data_get_string(settings, "gift_alert_uname_source")
         self.gift_alert_count_source = obs.obs_data_get_string(settings, "gift_alert_count_source")
-        self.gift_alert_amount_source = obs.obs_data_get_string(settings, "gift_alert_amount_source")
+        #self.gift_alert_amount_source = obs.obs_data_get_string(settings, "gift_alert_amount_source")
         self.gift_alert_scene_source = obs.obs_data_get_string(settings, "gift_alert_scene_source")
 
         # Deactivate timers and remove old livestream reference
@@ -586,7 +630,7 @@ class OBSRumLiveAlerts():
                 self.set_texts_by_source_names({
                     self.rant_alert_uname_source: rant.user.username,
                     self.rant_alert_message_source: rant.text,
-                    self.rant_alert_amount_source: f"${rant.rant_price_cents / 100:.2}",
+                    self.rant_alert_amount_source: f"${rant.rant_price_cents / 100:.2f}",
                     })
                 )
 
@@ -615,7 +659,7 @@ class OBSRumLiveAlerts():
                 self.set_texts_by_source_names({
                     self.gift_alert_uname_source: gift.user.username,
                     self.gift_alert_count_source: str(gift.gift_purchase_notification.total_gifts),
-                    self.gift_alert_amount_source: f"${gift.amount_cents / 100:.2f}",
+                    #self.gift_alert_amount_source: f"${gift.amount_cents / 100:.2f}",
                     }),
                 )
 
@@ -672,6 +716,47 @@ class OBSRumLiveAlerts():
 
 rla = OBSRumLiveAlerts()
 print("RLA initialized.")
+
+
+def test_follower_alert(props, prop):
+    """Test the follower alert button"""
+    global rla
+    rla.follower_inbox.put(TestFollower)
+    print("Test follower queued.")
+    return False
+
+
+def test_subscriber_alert(props, prop):
+    """Test the subscriber alert button"""
+    global rla
+    rla.subscriber_inbox.put(TestSubscriber)
+    print("Test subscriber queued.")
+    return False
+
+
+def test_rant_alert(props, prop):
+    """Test the rant alert button"""
+    global rla
+    rla.rant_inbox.put(TestRant)
+    print("Test rant queued.")
+    return False
+
+
+def test_raid_alert(props, prop):
+    """Test the raid alert button"""
+    global rla
+    rla.raid_inbox.put(TestRaid)
+    print("Test raid queued.")
+    return False
+
+
+def test_gift_alert(props, prop):
+    """Test the gift alert button"""
+    global rla
+    rla.gift_inbox.put(TestGift)
+    print("Test gift queued.")
+    return False
+
 
 script_properties = rla.script_properties
 script_defaults = rla.script_defaults
