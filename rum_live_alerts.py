@@ -499,6 +499,11 @@ class OBSRumLiveAlerts():
         obs.obs_data_release(setter_data)
         obs.obs_source_release(source)
 
+    def set_texts_by_source_names(self, source_texts: dict[str, str]):
+        """Sets the values of multiple text sources"""
+        for source_name, new_value in source_texts.items():
+            self.set_text_by_source_name(source_name, new_value)
+
     def check_main_rls_api(self):
         """Check if there are any new alertables in the main RLS API and add them to the inboxes"""
         print("Checking main RLS API")
@@ -544,249 +549,99 @@ class OBSRumLiveAlerts():
 
     def next_follower_alert(self):
         """Do the next follower alert, finishing up the last one"""
-        print("Doing follower alert tick")
-
-        current_scenesource = obs.obs_frontend_get_current_scene()  # returns obs_source_t
-
-        # These do not increase the refcounter, release the above instead
-        current_scene = obs.obs_scene_from_source(current_scenesource)
-        subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.follower_alert_scene_source)
-
-        try:
-
-            if not subscene_sceneitem:
-                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{self.follower_alert_scene_source}'")
-                return
-
-            # Finish up the last follower alert
-            if obs.obs_sceneitem_visible(subscene_sceneitem):
-                obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
-                self.alerts_mutex.release()
-                print("Finished follower alert.")
-
-            # Check for a new follower
-            if self.follower_inbox.empty():
-                return
-
-            # We have a follower
-
-            # Alerts must not happen at the same time
-            lock = self.alerts_mutex.acquire(blocking=False)
-            if not lock:
-                print("Another alert is in progress. Wait.")
-                return
-
-            follower = self.follower_inbox.get()
-
-            print(f"New follower: {follower}")
-
-            # We are set to not do follower alerts
-            if not self.follower_alert_use:
-                print("Follower alerts are disabled.")
-                self.alerts_mutex.release()
-                return
-
-            # Set the text
-            print("Setting text")
-            self.set_text_by_source_name(self.follower_alert_uname_source, follower.username)
-
-            # Show the alert
-            print("Showing alert")
-            obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
-
-        # Wherever we returned within the try block, we must release the scene and unlock
-        finally:
-            obs.obs_source_release(current_scenesource)
+        self.__next_generic_alert(
+            "follower",
+            self.follower_alert_scene_source,
+            self.follower_inbox,
+            self.follower_alert_use,
+            lambda follower:
+                self.set_text_by_source_name(
+                    self.follower_alert_uname_source,
+                    follower.username,
+                    ),
+                )
 
     def next_subscriber_alert(self):
         """Do the next subscriber alert, finishing up the last one"""
-        print("Doing subscriber alert tick")
-
-        current_scenesource = obs.obs_frontend_get_current_scene()  # returns obs_source_t
-
-        # These do not increase the refcounter, release the above instead
-        current_scene = obs.obs_scene_from_source(current_scenesource)
-        subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.subscriber_alert_scene_source)
-
-        try:
-            if not subscene_sceneitem:
-                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{self.subscriber_alert_scene_source}'")
-                return
-
-            # Finish up the last subscriber alert
-            if obs.obs_sceneitem_visible(subscene_sceneitem):
-                obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
-                self.alerts_mutex.release()
-                print("Finished subscriber alert.")
-
-            # Check for a new subscriber
-            if self.subscriber_inbox.empty():
-                return
-
-            # We have a subscriber
-            # Alerts must not happen at the same time
-            lock = self.alerts_mutex.acquire(blocking=False)
-            if not lock:
-                print("Another alert is in progress. Wait.")
-                return
-
-            subscriber = self.subscriber_inbox.get()
-            print(f"New subscriber: {subscriber}")
-
-            # We are set to not do subscriber alerts
-            if not self.subscriber_alert_use:
-                print("Subscriber alerts are disabled.")
-                self.alerts_mutex.release()
-                return
-
-            # Set the userame text
-            self.set_text_by_source_name(self.subscriber_alert_uname_source, subscriber.username)
-
-            # Set the amount text
-            self.set_text_by_source_name(self.subscriber_alert_amount_source, f"${subscriber.amount_cents / 100:.2f}")
-
-            # Show the alert
-            obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
-
-        finally:
-            obs.obs_source_release(current_scenesource)
+        self.__next_generic_alert(
+            "subscriber",
+            self.subscriber_alert_scene_source,
+            self.subscriber_inbox,
+            self.subscriber_alert_use,
+            lambda subscriber:
+                self.set_texts_by_source_names({
+                    self.subscriber_alert_uname_source: subscriber.username,
+                    self.subscriber_alert_amount_source: f"${subscriber.amount_cents / 100:.2f}",
+                    })
+                )
 
     def next_rant_alert(self):
         """Do the next rant alert, finishing up the last one"""
-        print("Doing rant alert tick")
-
-        current_scenesource = obs.obs_frontend_get_current_scene()  # returns obs_source_t
-
-        # These do not increase the refcounter, release the above instead
-        current_scene = obs.obs_scene_from_source(current_scenesource)
-        subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.rant_alert_scene_source)
-
-        try:
-            if not subscene_sceneitem:
-                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{self.rant_alert_scene_source}'")
-                return
-
-            # Finish up the last rant alert
-            if obs.obs_sceneitem_visible(subscene_sceneitem):
-                obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
-                self.alerts_mutex.release()
-                print("Finished rant alert.")
-
-            # Check for a new rant
-            if self.rant_inbox.empty():
-                return
-
-            # We have a rant
-            # Alerts must not happen at the same time
-            lock = self.alerts_mutex.acquire(blocking=False)
-            if not lock:
-                print("Another alert is in progress. Wait.")
-                return
-
-            rant = self.rant_inbox.get()
-            print(f"New rant: {rant}")
-
-            # We are set to not do rant alerts
-            if not self.rant_alert_use:
-                print("Rant alerts are disabled.")
-                self.alerts_mutex.release()
-                return
-
-            # Set the userame text
-            self.set_text_by_source_name(self.rant_alert_uname_source, rant.user.username)
-
-            # Set the message text
-            self.set_text_by_source_name(self.rant_alert_message_source, rant.text)
-
-            # Set the amount text
-            self.set_text_by_source_name(self.rant_alert_amount_source, f"${rant.rant_price_cents / 100:.2}")
-
-            # Show the alert
-            obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
-
-        finally:
-            obs.obs_source_release(current_scenesource)
+        self.__next_generic_alert(
+            "rant",
+            self.rant_alert_scene_source,
+            self.rant_inbox,
+            self.rant_alert_use,
+            lambda rant:
+                self.set_texts_by_source_names({
+                    self.rant_alert_uname_source: rant.user.username,
+                    self.rant_alert_message_source: rant.text,
+                    self.rant_alert_amount_source: f"${rant.rant_price_cents / 100:.2}",
+                    })
+                )
 
     def next_raid_alert(self):
         """Do the next raid alert, finishing up the last one"""
-        print("Doing raid alert tick")
-
-        current_scenesource = obs.obs_frontend_get_current_scene()  # returns obs_source_t
-
-        # These do not increase the refcounter, release the above instead
-        current_scene = obs.obs_scene_from_source(current_scenesource)
-        subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.raid_alert_scene_source)
-
-        try:
-
-            if not subscene_sceneitem:
-                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{self.raid_alert_scene_source}'")
-                return
-
-            # Finish up the last raid alert
-            if obs.obs_sceneitem_visible(subscene_sceneitem):
-                obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
-                self.alerts_mutex.release()
-                print("Finished raid alert.")
-
-            # Check for a new raid
-            if self.raid_inbox.empty():
-                return
-
-            # We have a raid
-
-            # Alerts must not happen at the same time
-            lock = self.alerts_mutex.acquire(blocking=False)
-            if not lock:
-                print("Another alert is in progress. Wait.")
-                return
-
-            raid = self.raid_inbox.get()
-
-            print(f"New raid: {raid}")
-
-            # We are set to not do raid alerts
-            if not self.raid_alert_use:
-                print("Raid alerts are disabled.")
-                self.alerts_mutex.release()
-                return
-
-            # Set the text
-            print("Setting text")
-            # Remember, this raid is a message object
-            self.set_text_by_source_name(self.raid_alert_uname_source, raid.user.username)
-
-            # Show the alert
-            print("Showing alert")
-            obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
-
-        # Wherever we returned within the try block, we must release the scene and unlock
-        finally:
-            obs.obs_source_release(current_scenesource)
+        self.__next_generic_alert(
+            "raid",
+            self.raid_alert_scene_source,
+            self.raid_inbox,
+            self.raid_alert_use,
+            lambda raid:
+                self.set_text_by_source_name(
+                    self.raid_alert_uname_source,
+                    raid.user.username,
+                    ),
+                )
 
     def next_gift_alert(self):
         """Do the next gift alert, finishing up the last one"""
-        print("Doing gift alert tick")
+        self.__next_generic_alert(
+            "gift",
+            self.gift_alert_scene_source,
+            self.gift_inbox,
+            self.gift_alert_use,
+            lambda gift:
+                self.set_texts_by_source_names({
+                    self.gift_alert_uname_source: gift.user.username,
+                    self.gift_alert_count_source: str(gift.gift_purchase_notification.total_gifts),
+                    self.gift_alert_amount_source: f"${gift.amount_cents / 100:.2f}",
+                    }),
+                )
+
+    def __next_generic_alert(self, name: str, alert_scene_source: str, inbox: Queue, set_to_use: bool, config_alert_display: callable):
+        """Do the next generic alert, finishing up the last one"""
+        print(f"Doing {name} alert tick")
 
         current_scenesource = obs.obs_frontend_get_current_scene()  # returns obs_source_t
 
         # These do not increase the refcounter, release the above instead
         current_scene = obs.obs_scene_from_source(current_scenesource)
-        subscene_sceneitem = obs.obs_scene_find_source(current_scene, self.gift_alert_scene_source)
+        subscene_sceneitem = obs.obs_scene_find_source(current_scene, alert_scene_source)
 
         try:
             if not subscene_sceneitem:
-                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{self.gift_alert_scene_source}'")
+                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{alert_scene_source}'")
                 return
 
             # Finish up the last gift alert
             if obs.obs_sceneitem_visible(subscene_sceneitem):
                 obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
                 self.alerts_mutex.release()
-                print("Finished gift alert.")
+                print(f"Finished {name} alert.")
 
             # Check for a new gift
-            if self.gift_inbox.empty():
+            if inbox.empty():
                 return
 
             # We have a gift
@@ -796,23 +651,17 @@ class OBSRumLiveAlerts():
                 print("Another alert is in progress. Wait.")
                 return
 
-            gift = self.gift_inbox.get()
-            print(f"New gift: {gift}")
+            alertable = inbox.get()
+            print(f"New {name}: {alertable}")
 
             # We are set to not do gift alerts
-            if not self.gift_alert_use:
-                print("Subscriber alerts are disabled.")
+            if not set_to_use:
+                print(f"{name.capitalize()} alerts are disabled.")
                 self.alerts_mutex.release()
                 return
 
-            # Set the userame text
-            self.set_text_by_source_name(self.gift_alert_uname_source, gift.user.username)
-
-            # Set the number of gifts text
-            self.set_text_by_source_name(self.gift_alert_count_source, str(gift.gift_purchase_notification.total_gifts))
-
-            # Set the amount text
-            self.set_text_by_source_name(self.gift_alert_amount_source, f"${gift.amount_cents / 100:.2f}")
+            # Set the alert display based on the alertable
+            config_alert_display(alertable)
 
             # Show the alert
             obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
