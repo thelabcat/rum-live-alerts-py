@@ -166,9 +166,9 @@ class OBSRumLiveAlerts():
         self.chat_alert_receiver = None
 
         self.props = None
-        self.scene_names = []
+        self.scene_names_and_items = {}
         self.subscene_names = []
-        self.source_names_and_types = {}
+        self.source_names_to_types = {}
 
         # Inboxes of things waiting to be alerted for
         self.follower_inbox = Queue()
@@ -318,7 +318,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_button(self.props, "gift_alert_test", "Queue fake gift", test_gift_alert)
 
         print("Adding all text display sources to the text display selectors")
-        for source_name, source_id in self.source_names_and_types.items():
+        for source_name, source_id in self.source_names_to_types.items():
             # Source is a text display, add it to text source selectors
             if source_id in ("text_gdiplus", "text_ft2_source"):
                 obs.obs_property_list_add_string(follower_uname_prop, source_name, source_name)
@@ -478,7 +478,7 @@ class OBSRumLiveAlerts():
         sources = obs.obs_enum_sources()
         if sources:
             print("Getting non-subscene source names")
-            self.source_names_and_types = {obs.obs_source_get_name(s): obs.obs_source_get_unversioned_id(s) for s in sources}
+            self.source_names_to_types = {obs.obs_source_get_name(s): obs.obs_source_get_unversioned_id(s) for s in sources}
             print("Releasing source list")
             obs.source_list_release(sources)
         else:
@@ -488,7 +488,7 @@ class OBSRumLiveAlerts():
         scene_sources = obs.obs_frontend_get_scenes()
         if scene_sources:
             print("Getting scene names")
-            self.scene_names = [obs.obs_source_get_name(s) for s in scene_sources]
+            self.scene_names_and_items = {obs.obs_source_get_name(s): [] for s in scene_sources}
             print("Releasing scene sources list")
             obs.source_list_release(scene_sources)
         else:
@@ -496,7 +496,7 @@ class OBSRumLiveAlerts():
 
         print("Evaluating which scenes are subscenes")
         self.subscene_names = []
-        for scene_name in self.scene_names:
+        for scene_name, item_names in self.scene_names_and_items.items():
             print(scene_name + ":")
             #print("\t(getting scene items)")
             scene = obs.obs_get_scene_by_name(scene_name)
@@ -510,10 +510,13 @@ class OBSRumLiveAlerts():
                     #print("\t(getting source name)")
                     name = obs.obs_source_get_name(source)
 
+                    # Make record that the item is in this scene
+                    item_names.append(name)
+
                     # Is this item a subscene source?
                     #print("\t(identifying source type)")
                     # If this is not a subscene source, we will have a record of it already
-                    unversioned_id = self.source_names_and_types.get(name) or obs.obs_source_get_unversioned_id(source)
+                    unversioned_id = self.source_names_to_types.get(name) or obs.obs_source_get_unversioned_id(source)
                     if unversioned_id == "scene":
                         print(f"\t{unversioned_id}: {name} <--")
                         self.subscene_names.append(name)
