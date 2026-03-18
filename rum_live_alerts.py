@@ -6,8 +6,34 @@ S.D.G."""
 
 from queue import Queue
 import threading
-import obspython as obs
-import cocorum
+try:
+    import obspython as obs
+except ModuleNotFoundError:
+    print("""
+---ERROR---
+
+This script is meant to be run by OBS Studio, not by itself.
+To add it, in the OBS Studio menu bar (at the top of the window), choose the
+"Tools" menu, and click on "Scripts". When the Scripts dialog opens, click the
+"+" button in the bottom left-hand corner of it. A file dialog should appear,
+where you can browse to this script and load it. Then, select it in the list of
+loaded scripts (the big box on the left-hand side of the Scripts dialog), and
+you should see all of its settings on the right-hand side.
+
+If you are on Windows or MacOS, you must have a Python install path set under
+the Python Settings tab of the Scripts dialog.
+"""
+    )
+    input("Goodbye! Press enter to exit.")
+    quit()
+
+try:
+    import cocorum
+    print("Cocorum successfully imported.")
+    COCORUM_IMPORTED = True
+except ModuleNotFoundError:
+    print("ERROR: You must install the Python library 'cocorum' to use this script.")
+    COCORUM_IMPORTED = False
 
 #API_URL_START = "https://rumble.com/-livestream-api/get-data?key="
 MAX_ALERT_TIME = 6000  # Maximum for how long an alert can be displayed
@@ -880,8 +906,40 @@ def test_gift_alert(props, prop):
     return rla.test_gift_alert(props, prop)
 
 
-# Make methods of the RLA instance globally accessible to OBS
-script_properties = rla.script_properties
-script_defaults = rla.script_defaults
-script_update = rla.script_update
-script_unload = rla.script_unload
+# Cocorum is available, we can continue as normal
+if COCORUM_IMPORTED:
+    # Make methods of the RLA instance globally accessible to OBS
+    script_properties = rla.script_properties
+    script_defaults = rla.script_defaults
+    script_update = rla.script_update
+    script_unload = rla.script_unload
+
+
+# Cocorum failed to import, fall back
+else:
+    def script_properties():
+        """Fallback script properties display to gracefully inform of error"""
+        props = obs.obs_properties_create()
+        obs.obs_properties_add_text(
+            props,
+            "error_header",
+            """
+---ERROR---
+
+This script requires the Python library 'cocorum' to operate.
+You can download it at:
+
+    https://pypi.org/project/cocorum/
+
+It must be installed to the Python environment that OBS Studio is using. If you
+ are using the Linux Flatpak version of OBS, I cannot help you. For Linux
+system packages, though, just install cocorum to your home environment. If your
+default Python environment is externally managed, I recommend using PyEnv to
+set a default local environment for your home directory: OBS Studio WILL use
+it, thankfully.
+
+Goodbye!
+            """,
+            obs.OBS_TEXT_INFO,
+            )
+        return props
