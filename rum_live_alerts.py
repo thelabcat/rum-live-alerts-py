@@ -35,7 +35,13 @@ except ModuleNotFoundError:
     print("ERROR: You must install the Python library 'cocorum' to use this script.")
     COCORUM_IMPORTED = False
 
-#API_URL_START = "https://rumble.com/-livestream-api/get-data?key="
+SCRIPT_DESCRIPTION = """
+<center>
+<h1>Rumble Live Alerts PY</h1>
+<p>Emulate the behavior of RumBot 4.5 and under, without WebSocket</p>
+</center>
+"""
+
 MAX_ALERT_TIME = 6000  # Maximum for how long an alert can be displayed
 
 # Minimum and maximum refresh rates to check the API again
@@ -293,12 +299,12 @@ class OBSRumLiveAlerts():
         self.get_scenes_and_sources()
 
         # Base settings
-        obs.obs_properties_add_text(self.props, "base_settings_header", "--- Base Settings ---", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_text(self.props, "base_settings_header", "<h2>Base Settings</h2>", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_text(self.props, "api_url", "API URL (with key)", obs.OBS_TEXT_PASSWORD)
         obs.obs_properties_add_int(self.props, "refresh_rate", "Refresh Rate (seconds)", REFRESH_RATE_MIN, REFRESH_RATE_MAX, 1)
 
         # Settings for the follower alert
-        obs.obs_properties_add_text(self.props, "follower_alert_header", "\n--- Follower Alert ---", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_text(self.props, "follower_alert_header", "<hr><h2>Follower Alert</h2>", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "follower_alert_use", "Use follower alert")
         obs.obs_properties_add_int(self.props, "follower_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         follower_scene_prop = obs.obs_properties_add_list(self.props, "follower_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
@@ -308,7 +314,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_button(self.props, "follower_alert_test", "Queue fake follower", test_follower_alert)
 
         # Settings for the subscriber alert
-        obs.obs_properties_add_text(self.props, "subscriber_alert_header", "\n--- Subscriber Alert ---", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_text(self.props, "subscriber_alert_header", "<hr><h2>Subscriber Alert</h2>", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "subscriber_alert_use", "Use subscriber alert")
         obs.obs_properties_add_int(self.props, "subscriber_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         subscriber_scene_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
@@ -318,7 +324,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_button(self.props, "subscriber_alert_test", "Queue fake subscriber", test_subscriber_alert)
 
         # Settings for the rant alert
-        obs.obs_properties_add_text(self.props, "rant_alert_header", "\n--- Rant Alert ---", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_text(self.props, "rant_alert_header", "<hr><h2>Rant Alert</h2>", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "rant_alert_use", "Use rant alert")
         obs.obs_properties_add_int(self.props, "rant_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         rant_scene_prop = obs.obs_properties_add_list(self.props, "rant_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
@@ -329,7 +335,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_button(self.props, "rant_alert_test", "Queue fake rant", test_rant_alert)
 
         # Settings for the raid alert
-        obs.obs_properties_add_text(self.props, "raid_alert_header", "\n--- Raid Alert ---", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_text(self.props, "raid_alert_header", "<hr><h2>Raid Alert</h2>", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "raid_alert_use", "Use raid alert")
         obs.obs_properties_add_int(self.props, "raid_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         raid_scene_prop = obs.obs_properties_add_list(self.props, "raid_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
@@ -338,7 +344,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_button(self.props, "raid_alert_test", "Queue fake raid", test_raid_alert)
 
         # Settings for the gift alert
-        obs.obs_properties_add_text(self.props, "gift_alert_header", "\n--- Gift Alert ---", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_text(self.props, "gift_alert_header", "<hr><h2>Gift Alert</h2>", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "gift_alert_use", "Use gift alert")
         obs.obs_properties_add_int(self.props, "gift_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         gift_scene_prop = obs.obs_properties_add_list(self.props, "gift_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
@@ -906,6 +912,10 @@ def test_gift_alert(props, prop):
     return rla.test_gift_alert(props, prop)
 
 
+def script_description():
+    return SCRIPT_DESCRIPTION
+
+
 # Cocorum is available, we can continue as normal
 if COCORUM_IMPORTED:
     # Make methods of the RLA instance globally accessible to OBS
@@ -914,7 +924,6 @@ if COCORUM_IMPORTED:
     script_update = rla.script_update
     script_unload = rla.script_unload
 
-
 # Cocorum failed to import, fall back
 else:
     def script_properties():
@@ -922,23 +931,27 @@ else:
         props = obs.obs_properties_create()
         obs.obs_properties_add_text(
             props,
-            "error_header",
+            "error_notice",
             """
----ERROR---
+<center><h2>ERROR</h2></center>
 
-This script requires the Python library 'cocorum' to operate.
-You can download it at:
+<p>This script requires the Python library 'cocorum' to operate.
+You can <a href="https://pypi.org/project/cocorum/">get it from PYPI</a>.
+Note that it must be installed to the Python environment that OBS Studio is
+using.
+</p>
+<ul>
+<li><b>Linux Flatpak version of OBS:</b> I don't know how to install Cocorum for this.</li>
+<li><b>Linux system package OBS:</b> This will just use the default
+Python environment in your home directory, so try using Pip normally first. If
+it complains that your default Python environment is externally managed, I
+recommend using <a href="https://github.com/pyenv/pyenv">PyEnv</a> to set up a
+local environment for your home directory: OBS Studio will use it, thankfully.</li>
+<li><b>Windows:</b> You must tell OBS Studio where to load Python from, via the
+<em>Python Settings</em> tab of this window.</li>
+</ul>
 
-    https://pypi.org/project/cocorum/
-
-It must be installed to the Python environment that OBS Studio is using. If you
- are using the Linux Flatpak version of OBS, I cannot help you. For Linux
-system packages, though, just install cocorum to your home environment. If your
-default Python environment is externally managed, I recommend using PyEnv to
-set a default local environment for your home directory: OBS Studio WILL use
-it, thankfully.
-
-Goodbye!
+<p>Goodbye!</p>
             """,
             obs.OBS_TEXT_INFO,
             )
