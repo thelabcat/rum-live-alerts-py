@@ -809,6 +809,7 @@ class OBSRumLiveAlerts():
 
         return True
 
+    # TODO: Use lambda for these?
     def test_follower_alert(self, props, prop):
         """Test the follower alert button"""
         self.follower_inbox.put(TestFollower)
@@ -878,7 +879,7 @@ def test_gift_alert(props, prop):
     """Test the gift alert button (global wrapper for RLA instance)"""
     return rla.test_gift_alert(props, prop)
 
-
+# Make methods of the RLA instance globally accessible to OBS
 script_properties = rla.script_properties
 script_defaults = rla.script_defaults
 script_update = rla.script_update
