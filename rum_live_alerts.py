@@ -277,7 +277,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_int(self.props, "follower_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         follower_scene_prop = obs.obs_properties_add_list(self.props, "follower_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_property_set_modified_callback(follower_scene_prop, update_follower_source_lists)
-        follower_uname_prop = obs.obs_properties_add_list(self.props, "follower_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_list(self.props, "follower_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
         obs.obs_properties_add_button(self.props, "follower_alert_test", "Queue fake follower", test_follower_alert)
 
@@ -287,8 +287,8 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_int(self.props, "subscriber_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         subscriber_scene_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_property_set_modified_callback(subscriber_scene_prop, update_subscriber_source_lists)
-        subscriber_uname_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        subscriber_amount_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_list(self.props, "subscriber_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_list(self.props, "subscriber_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_button(self.props, "subscriber_alert_test", "Queue fake subscriber", test_subscriber_alert)
 
         # Settings for the rant alert
@@ -297,9 +297,9 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_int(self.props, "rant_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         rant_scene_prop = obs.obs_properties_add_list(self.props, "rant_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         #obs.obs_property_set_modified_callback(rant_scene_prop, update_rant_source_lists)
-        rant_uname_prop = obs.obs_properties_add_list(self.props, "rant_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        rant_message_prop = obs.obs_properties_add_list(self.props, "rant_alert_message_source", "Message text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        rant_amount_prop = obs.obs_properties_add_list(self.props, "rant_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_list(self.props, "rant_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_list(self.props, "rant_alert_message_source", "Message text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_list(self.props, "rant_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_button(self.props, "rant_alert_test", "Queue fake rant", test_rant_alert)
 
         # Settings for the raid alert
@@ -308,7 +308,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_int(self.props, "raid_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         raid_scene_prop = obs.obs_properties_add_list(self.props, "raid_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         #obs.obs_property_set_modified_callback(raid_scene_prop, update_raid_source_lists)
-        raid_uname_prop = obs.obs_properties_add_list(self.props, "raid_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_list(self.props, "raid_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_button(self.props, "raid_alert_test", "Queue fake raid", test_raid_alert)
 
         # Settings for the gift alert
@@ -317,26 +317,17 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_int(self.props, "gift_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         gift_scene_prop = obs.obs_properties_add_list(self.props, "gift_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         #obs.obs_property_set_modified_callback(gift_scene_prop, update_gift_source_lists)
-        gift_uname_prop = obs.obs_properties_add_list(self.props, "gift_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        gift_count_prop = obs.obs_properties_add_list(self.props, "gift_alert_count_source", "Gift count text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_list(self.props, "gift_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_list(self.props, "gift_alert_count_source", "Gift count text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         #gift_amount_prop = obs.obs_properties_add_list(self.props, "gift_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_button(self.props, "gift_alert_test", "Queue fake gift", test_gift_alert)
 
-        print("Adding all text display sources to the text display selectors")
+        print("Updating text display selectors")
         self.update_follower_source_lists(selected_scene=DefaultSettings.follower_alert_scene_source)
-        for source_name, source_id in self.source_names_to_types.items():
-            # Source is a text display, add it to text source selectors
-            if source_id in ("text_gdiplus", "text_ft2_source"):
-                #obs.obs_property_list_add_string(follower_uname_prop, source_name, source_name)
-                obs.obs_property_list_add_string(subscriber_uname_prop, source_name, source_name)
-                obs.obs_property_list_add_string(subscriber_amount_prop, source_name, source_name)
-                obs.obs_property_list_add_string(rant_uname_prop, source_name, source_name)
-                obs.obs_property_list_add_string(rant_message_prop, source_name, source_name)
-                obs.obs_property_list_add_string(rant_amount_prop, source_name, source_name)
-                obs.obs_property_list_add_string(raid_uname_prop, source_name, source_name)
-                obs.obs_property_list_add_string(gift_uname_prop, source_name, source_name)
-                obs.obs_property_list_add_string(gift_count_prop, source_name, source_name)
-                #obs.obs_property_list_add_string(gift_amount_prop, source_name, source_name)
+        self.update_subscriber_source_lists(selected_scene=DefaultSettings.subscriber_alert_scene_source)
+        self.update_rant_source_lists(selected_scene=DefaultSettings.rant_alert_scene_source)
+        self.update_raid_source_lists(selected_scene=DefaultSettings.raid_alert_scene_source)
+        self.update_gift_source_lists(selected_scene=DefaultSettings.gift_alert_scene_source)
 
         print("Adding all subscene sources to the subscene source selectors")
         for subscene_name in self.subscene_names:
@@ -751,6 +742,42 @@ class OBSRumLiveAlerts():
             selected_scene=selected_scene,
             )
 
+    def update_rant_source_lists(self, props=None, prop=None, settings=None, selected_scene: str = None):
+        """Filter available sources for rant alert displays"""
+        return self.__update_alert_source_lists(
+            "rant",
+            (
+                "rant_alert_uname_source",
+                "rant_alert_amount_source",
+                "rant_alert_message_source"
+                ),
+            settings=settings,
+            selected_scene=selected_scene,
+            )
+
+    def update_raid_source_lists(self, props=None, prop=None, settings=None, selected_scene: str = None):
+        """Filter available sources for raid alert displays"""
+        return self.__update_alert_source_lists(
+            "raid",
+            (
+                "raid_alert_uname_source",
+                ),
+            settings=settings,
+            selected_scene=selected_scene,
+            )
+
+    def update_gift_source_lists(self, props=None, prop=None, settings=None, selected_scene: str = None):
+        """Filter available sources for gift alert displays"""
+        return self.__update_alert_source_lists(
+            "gift",
+            (
+                "gift_alert_uname_source",
+                "gift_alert_count_source",
+                ),
+            settings=settings,
+            selected_scene=selected_scene,
+            )
+
     def __update_alert_source_lists(self, name: str, sub_prop_names: iter, settings=None, selected_scene: str = None):
         """Filter available sources for named alert displays"""
         print(f"Updating {name} source lists")
@@ -819,43 +846,36 @@ print("RLA initialized.")
 
 def update_follower_source_lists(props, prop, settings):
     """Filter available sources for follower alert displays (global wrapper for RLA instance)"""
-    global rla
     return rla.update_follower_source_lists(props, prop, settings)
 
 
 def update_subscriber_source_lists(props, prop, settings):
     """Filter available sources for subscriber alert displays (global wrapper for RLA instance)"""
-    global rla
     return rla.update_subscriber_source_lists(props, prop, settings)
 
 
 def test_follower_alert(props, prop):
     """Test the follower alert button (global wrapper for RLA instance)"""
-    global rla
     return rla.test_follower_alert(props, prop)
 
 
 def test_subscriber_alert(props, prop):
     """Test the subscriber alert button (global wrapper for RLA instance)"""
-    global rla
     return rla.test_subscriber_alert(props, prop)
 
 
 def test_rant_alert(props, prop):
     """Test the rant alert button (global wrapper for RLA instance)"""
-    global rla
     return rla.test_rant_alert(props, prop)
 
 
 def test_raid_alert(props, prop):
     """Test the raid alert button (global wrapper for RLA instance)"""
-    global rla
     return rla.test_raid_alert(props, prop)
 
 
 def test_gift_alert(props, prop):
     """Test the gift alert button (global wrapper for RLA instance)"""
-    global rla
     return rla.test_gift_alert(props, prop)
 
 
