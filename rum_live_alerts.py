@@ -879,6 +879,7 @@ def test_gift_alert(props, prop):
     """Test the gift alert button (global wrapper for RLA instance)"""
     return rla.test_gift_alert(props, prop)
 
+
 # Make methods of the RLA instance globally accessible to OBS
 script_properties = rla.script_properties
 script_defaults = rla.script_defaults
