@@ -275,8 +275,9 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_text(self.props, "follower_alert_header", "\n--- Follower Alert ---", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "follower_alert_use", "Use follower alert")
         obs.obs_properties_add_int(self.props, "follower_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
-        follower_uname_prop = obs.obs_properties_add_list(self.props, "follower_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         follower_scene_prop = obs.obs_properties_add_list(self.props, "follower_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_property_set_modified_callback(follower_scene_prop, update_follower_source_lists)
+        follower_uname_prop = obs.obs_properties_add_list(self.props, "follower_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
         obs.obs_properties_add_button(self.props, "follower_alert_test", "Queue fake follower", test_follower_alert)
 
@@ -284,44 +285,49 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_text(self.props, "subscriber_alert_header", "\n--- Subscriber Alert ---", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "subscriber_alert_use", "Use subscriber alert")
         obs.obs_properties_add_int(self.props, "subscriber_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
+        subscriber_scene_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_property_set_modified_callback(subscriber_scene_prop, update_subscriber_source_lists)
         subscriber_uname_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         subscriber_amount_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        subscriber_scene_prop = obs.obs_properties_add_list(self.props, "subscriber_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_button(self.props, "subscriber_alert_test", "Queue fake subscriber", test_subscriber_alert)
 
         # Settings for the rant alert
         obs.obs_properties_add_text(self.props, "rant_alert_header", "\n--- Rant Alert ---", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "rant_alert_use", "Use rant alert")
         obs.obs_properties_add_int(self.props, "rant_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
+        rant_scene_prop = obs.obs_properties_add_list(self.props, "rant_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        #obs.obs_property_set_modified_callback(rant_scene_prop, update_rant_source_lists)
         rant_uname_prop = obs.obs_properties_add_list(self.props, "rant_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         rant_message_prop = obs.obs_properties_add_list(self.props, "rant_alert_message_source", "Message text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         rant_amount_prop = obs.obs_properties_add_list(self.props, "rant_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        rant_scene_prop = obs.obs_properties_add_list(self.props, "rant_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_button(self.props, "rant_alert_test", "Queue fake rant", test_rant_alert)
 
         # Settings for the raid alert
         obs.obs_properties_add_text(self.props, "raid_alert_header", "\n--- Raid Alert ---", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "raid_alert_use", "Use raid alert")
         obs.obs_properties_add_int(self.props, "raid_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
-        raid_uname_prop = obs.obs_properties_add_list(self.props, "raid_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         raid_scene_prop = obs.obs_properties_add_list(self.props, "raid_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        #obs.obs_property_set_modified_callback(raid_scene_prop, update_raid_source_lists)
+        raid_uname_prop = obs.obs_properties_add_list(self.props, "raid_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_button(self.props, "raid_alert_test", "Queue fake raid", test_raid_alert)
 
         # Settings for the gift alert
         obs.obs_properties_add_text(self.props, "gift_alert_header", "\n--- Gift Alert ---", obs.OBS_TEXT_INFO)
         obs.obs_properties_add_bool(self.props, "gift_alert_use", "Use gift alert")
         obs.obs_properties_add_int(self.props, "gift_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
+        gift_scene_prop = obs.obs_properties_add_list(self.props, "gift_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        #obs.obs_property_set_modified_callback(gift_scene_prop, update_gift_source_lists)
         gift_uname_prop = obs.obs_properties_add_list(self.props, "gift_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         gift_count_prop = obs.obs_properties_add_list(self.props, "gift_alert_count_source", "Gift count text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         #gift_amount_prop = obs.obs_properties_add_list(self.props, "gift_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        gift_scene_prop = obs.obs_properties_add_list(self.props, "gift_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_button(self.props, "gift_alert_test", "Queue fake gift", test_gift_alert)
 
         print("Adding all text display sources to the text display selectors")
+        self.update_follower_source_lists(selected_scene=DefaultSettings.follower_alert_scene_source)
         for source_name, source_id in self.source_names_to_types.items():
             # Source is a text display, add it to text source selectors
             if source_id in ("text_gdiplus", "text_ft2_source"):
-                obs.obs_property_list_add_string(follower_uname_prop, source_name, source_name)
+                #obs.obs_property_list_add_string(follower_uname_prop, source_name, source_name)
                 obs.obs_property_list_add_string(subscriber_uname_prop, source_name, source_name)
                 obs.obs_property_list_add_string(subscriber_amount_prop, source_name, source_name)
                 obs.obs_property_list_add_string(rant_uname_prop, source_name, source_name)
@@ -420,6 +426,14 @@ class OBSRumLiveAlerts():
             self.set_obs_timers()
 
         print("Script settings updated.")
+
+    def get_text_items(self, scene_name: str):
+        """Pull up the records of all text type sources within a scene"""
+        return [
+                item_name
+                for item_name in self.scene_names_and_items.get(scene_name, [])
+                if self.source_names_to_types.get(item_name, "NULL_RECORD") in ("text_gdiplus", "text_ft2_source")
+                ]
 
     def set_obs_timers(self):
         """Set all the timers we need in OBS"""
@@ -716,49 +730,133 @@ class OBSRumLiveAlerts():
         finally:
             obs.obs_source_release(current_scenesource)
 
+    def update_follower_source_lists(self, props=None, prop=None, settings=None, selected_scene: str = None):
+        """Filter available sources for follower alert displays"""
+        return self.__update_alert_source_lists(
+            "follower",
+            ("follower_alert_uname_source",),
+            settings=settings,
+            selected_scene=selected_scene,
+            )
+
+    def update_subscriber_source_lists(self, props=None, prop=None, settings=None, selected_scene: str = None):
+        """Filter available sources for subscriber alert displays"""
+        return self.__update_alert_source_lists(
+            "subscriber",
+            (
+                "subscriber_alert_uname_source",
+                "subscriber_alert_amount_source",
+                ),
+            settings=settings,
+            selected_scene=selected_scene,
+            )
+
+    def __update_alert_source_lists(self, name: str, sub_prop_names: iter, settings=None, selected_scene: str = None):
+        """Filter available sources for named alert displays"""
+        print(f"Updating {name} source lists")
+        assert selected_scene or settings, "Must be able to know selected scene source"
+
+        selected_scene = selected_scene or obs.obs_data_get_string(settings, f"{name}_alert_scene_source")
+
+        if selected_scene not in self.scene_names_and_items:
+            print(f"ERROR: Have no record of selected {name} scene '{selected_scene}'")
+            return False
+
+        # Allow for passing the sub property directly to avoid passing props
+        sub_props_by_name = {
+            prop_name:
+            obs.obs_properties_get(self.props, prop_name)
+            for prop_name in sub_prop_names
+            }
+
+        for sub_prop_name, sub_prop in sub_props_by_name.items():
+            if not sub_prop:
+                print(f"ERROR: Could not find a {name} alert property:", sub_prop_name)
+                print("THIS SHOULD NEVER HAPPEN!\n")
+                return False
+
+            obs.obs_property_list_clear(sub_prop)
+            for text_name in self.get_text_items(selected_scene):
+                print(f"\t-{text_name}")
+                obs.obs_property_list_add_string(sub_prop, text_name, text_name)
+
+        return True
+
+    def test_follower_alert(self, props, prop):
+        """Test the follower alert button"""
+        self.follower_inbox.put(TestFollower)
+        print("Test follower queued.")
+        return False
+
+    def test_subscriber_alert(self, props, prop):
+        """Test the subscriber alert button"""
+        self.subscriber_inbox.put(TestSubscriber)
+        print("Test subscriber queued.")
+        return False
+
+    def test_rant_alert(self, props, prop):
+        """Test the rant alert button"""
+        self.rant_inbox.put(TestRant)
+        print("Test rant queued.")
+        return False
+
+    def test_raid_alert(self, props, prop):
+        """Test the raid alert button"""
+        self.raid_inbox.put(TestRaid)
+        print("Test raid queued.")
+        return False
+
+    def test_gift_alert(self, props, prop):
+        """Test the gift alert button"""
+        self.gift_inbox.put(TestGift)
+        print("Test gift queued.")
+        return False
+
 
 rla = OBSRumLiveAlerts()
 print("RLA initialized.")
 
 
-def test_follower_alert(props, prop):
-    """Test the follower alert button"""
+def update_follower_source_lists(props, prop, settings):
+    """Filter available sources for follower alert displays (global wrapper for RLA instance)"""
     global rla
-    rla.follower_inbox.put(TestFollower)
-    print("Test follower queued.")
-    return False
+    return rla.update_follower_source_lists(props, prop, settings)
+
+
+def update_subscriber_source_lists(props, prop, settings):
+    """Filter available sources for subscriber alert displays (global wrapper for RLA instance)"""
+    global rla
+    return rla.update_subscriber_source_lists(props, prop, settings)
+
+
+def test_follower_alert(props, prop):
+    """Test the follower alert button (global wrapper for RLA instance)"""
+    global rla
+    return rla.test_follower_alert(props, prop)
 
 
 def test_subscriber_alert(props, prop):
-    """Test the subscriber alert button"""
+    """Test the subscriber alert button (global wrapper for RLA instance)"""
     global rla
-    rla.subscriber_inbox.put(TestSubscriber)
-    print("Test subscriber queued.")
-    return False
+    return rla.test_subscriber_alert(props, prop)
 
 
 def test_rant_alert(props, prop):
-    """Test the rant alert button"""
+    """Test the rant alert button (global wrapper for RLA instance)"""
     global rla
-    rla.rant_inbox.put(TestRant)
-    print("Test rant queued.")
-    return False
+    return rla.test_rant_alert(props, prop)
 
 
 def test_raid_alert(props, prop):
-    """Test the raid alert button"""
+    """Test the raid alert button (global wrapper for RLA instance)"""
     global rla
-    rla.raid_inbox.put(TestRaid)
-    print("Test raid queued.")
-    return False
+    return rla.test_raid_alert(props, prop)
 
 
 def test_gift_alert(props, prop):
-    """Test the gift alert button"""
+    """Test the gift alert button (global wrapper for RLA instance)"""
     global rla
-    rla.gift_inbox.put(TestGift)
-    print("Test gift queued.")
-    return False
+    return rla.test_gift_alert(props, prop)
 
 
 script_properties = rla.script_properties
