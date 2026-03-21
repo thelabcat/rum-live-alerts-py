@@ -328,7 +328,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_bool(self.props, "rant_alert_use", "Use rant alert")
         obs.obs_properties_add_int(self.props, "rant_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         rant_scene_prop = obs.obs_properties_add_list(self.props, "rant_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        #obs.obs_property_set_modified_callback(rant_scene_prop, update_rant_source_lists)
+        obs.obs_property_set_modified_callback(rant_scene_prop, update_rant_source_lists)
         obs.obs_properties_add_list(self.props, "rant_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_list(self.props, "rant_alert_message_source", "Message text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_list(self.props, "rant_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
@@ -339,7 +339,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_bool(self.props, "raid_alert_use", "Use raid alert")
         obs.obs_properties_add_int(self.props, "raid_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         raid_scene_prop = obs.obs_properties_add_list(self.props, "raid_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        #obs.obs_property_set_modified_callback(raid_scene_prop, update_raid_source_lists)
+        obs.obs_property_set_modified_callback(raid_scene_prop, update_raid_source_lists)
         obs.obs_properties_add_list(self.props, "raid_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_button(self.props, "raid_alert_test", "Queue fake raid", test_raid_alert)
 
@@ -348,7 +348,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_bool(self.props, "gift_alert_use", "Use gift alert")
         obs.obs_properties_add_int(self.props, "gift_alert_time", "Display for seconds", 0, MAX_ALERT_TIME, 1)
         gift_scene_prop = obs.obs_properties_add_list(self.props, "gift_alert_scene_source", "Scene source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        #obs.obs_property_set_modified_callback(gift_scene_prop, update_gift_source_lists)
+        obs.obs_property_set_modified_callback(gift_scene_prop, update_gift_source_lists)
         obs.obs_properties_add_list(self.props, "gift_alert_uname_source", "Username text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         obs.obs_properties_add_list(self.props, "gift_alert_count_source", "Gift count text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
         #gift_amount_prop = obs.obs_properties_add_list(self.props, "gift_alert_amount_source", "Amount (dollars) text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
@@ -887,6 +887,21 @@ def update_subscriber_source_lists(props, prop, settings):
     return rla.update_subscriber_source_lists(props, prop, settings)
 
 
+def update_rant_source_lists(props, prop, settings):
+    """Filter available sources for rant alert displays (global wrapper for RLA instance)"""
+    return rla.update_rant_source_lists(props, prop, settings)
+
+
+def update_raid_source_lists(props, prop, settings):
+    """Filter available sources for raid alert displays (global wrapper for RLA instance)"""
+    return rla.update_raid_source_lists(props, prop, settings)
+
+
+def update_gift_source_lists(props, prop, settings):
+    """Filter available sources for gift alert displays (global wrapper for RLA instance)"""
+    return rla.update_gift_source_lists(props, prop, settings)
+
+
 def test_follower_alert(props, prop):
     """Test the follower alert button (global wrapper for RLA instance)"""
     return rla.test_follower_alert(props, prop)
@@ -912,7 +927,8 @@ def test_gift_alert(props, prop):
     return rla.test_gift_alert(props, prop)
 
 
-def script_description():
+def script_description() -> str:
+    """The title and description for the script"""
     return SCRIPT_DESCRIPTION
 
 
