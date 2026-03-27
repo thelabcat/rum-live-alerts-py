@@ -13,7 +13,6 @@ You should have received a copy of the GNU General Public License along with Foo
 S.D.G."""
 
 from collections import namedtuple
-from dataclasses import dataclass
 from queue import Queue
 import threading
 from typing import NamedTuple
@@ -79,8 +78,8 @@ class TextSettings:
 
     def set_obs_defaults(self, settings):
         """Set the OBS settings data defaults"""
-        obs.obs_data_set_default_str(settings, self.slug + "_source", self.defaults.source)
-        obs.obs_data_set_default_str(settings, self.slug + "_text", self.defaults.text)
+        obs.obs_data_set_default_string(settings, self.slug + "_source", self.defaults.source)
+        obs.obs_data_set_default_string(settings, self.slug + "_text", self.defaults.text)
 
     def add_properties(self, properties):
         """Add these text settings to OBS properties"""
@@ -123,7 +122,7 @@ class AlertSettings:
     def set_obs_defaults(self, settings):
         """Set the OBS settings data defaults"""
         obs.obs_data_set_default_bool(settings, self.slug + "_use", self.defaults.use)
-        obs.obs_data_set_default_str(settings, self.slug + "_scene_source", self.defaults.scene_source)
+        obs.obs_data_set_default_string(settings, self.slug + "_scene_source", self.defaults.scene_source)
         obs.obs_data_set_default_double(settings, self.slug + "_time", self.defaults.time)
         for text in self.texts:
             text.set_obs_defaults(settings)
@@ -148,7 +147,7 @@ class AlertSettings:
         """Extract our settings from OBS settings data"""
         self.use = obs.obs_data_get_bool(settings, self.slug + "_use")
         self.scene_source = obs.obs_data_get_string(settings, self.slug + "_scene_source")
-        self.time = obs.obs_data_get_float(settings, self.slug + "_time")
+        self.time = obs.obs_data_get_double(settings, self.slug + "_time")
         for text in self.texts:
             text.get_from_obs(settings)
 
@@ -183,12 +182,12 @@ class LocalSettings:
 
         self.follower = AlertSettings(
             orla = self.orla,
-            desc = "Follower Alert",
+            desc = "Follower alert",
             scene_source = "Follower Scene",
             texts = [
                 TextSettings(
-                    desc = "Follower Username",
-                    source = "Follower Username",
+                    desc = "Follower username",
+                    source = "Follower username",
                     text = "{username} just followed!",
                     ),
                 ],
@@ -196,53 +195,53 @@ class LocalSettings:
 
         self.subscriber = AlertSettings(
             orla = self.orla,
-            desc = "Subscriber Alert",
+            desc = "Subscriber alert",
             scene_source = "Subscriber Scene",
             texts = [
                 TextSettings(
-                    desc = "Subscriber Username",
-                    source = "Subscriber Username",
+                    desc = "Subscriber username",
+                    source = "Subscriber username",
                     text = "{username} just subscribed!",
                     ),
                 TextSettings(
-                    desc = "Subscriber Amount Dollars",
-                    source = "Subscriber Amount Dollars",
-                    text = "For ${total_cents / 100:.2f}",
+                    desc = "Subscriber amount dollars",
+                    source = "Subscriber amount dollars",
+                    text = "For ${dollars}.{cents}",
                     ),
                 ],
             )
 
         self.rant = AlertSettings(
             orla = self.orla,
-            desc = "Rant Alert",
+            desc = "Rant alert",
             scene_source = "Rant Scene",
             texts = [
                 TextSettings(
-                    desc = "Rant Username",
-                    source = "Rant Username",
+                    desc = "Rant username",
+                    source = "Rant username",
                     text = "{username} said:",
                     ),
                 TextSettings(
-                    desc = "Rant Message",
-                    source = "Rant Message",
+                    desc = "Rant message",
+                    source = "Rant message",
                     text = "\"{message}\"",
                     ),
                 TextSettings(
-                    desc = "Rant Amount Dollars",
-                    source = "Rant Amount Dollars",
-                    text = "For ${total_cents / 100:.2f}",
+                    desc = "Rant amount dollars",
+                    source = "Rant amount dollars",
+                    text = "For ${dollars}.{cents}",
                     ),
                 ],
             )
 
         self.raid = AlertSettings(
             orla = self.orla,
-            desc = "Raid Alert",
+            desc = "Raid alert",
             scene_source = "Raid Scene",
             texts = [
                 TextSettings(
-                    desc = "Raid Username",
-                    source = "Raid Username",
+                    desc = "Raid username",
+                    source = "Raid username",
                     text = "{username} raided!",
                     ),
                 ],
@@ -250,12 +249,12 @@ class LocalSettings:
 
         self.gift = AlertSettings(
             orla = self.orla,
-            desc = "Gift Alert",
+            desc = "Gift alert",
             scene_source = "Gift Scene",
             texts = [
                 TextSettings(
-                    desc = "Gift Info",
-                    source = "Gift Info",
+                    desc = "Gift info",
+                    source = "Gift info",
                     text = "{username} gifted {gift_count} subs!",
                     ),
                 ],
@@ -264,8 +263,8 @@ class LocalSettings:
 
     def set_obs_defaults(self, settings):
         """Set the OBS settings data defaults"""
-        obs.obs_data_set_default_str(settings, "api_url", "")
-        obs.obs_data_set_default_float(settings, "api_refresh_rate", cocorum.static.Delays.api_refresh_default if COCORUM_IMPORTED else 10)
+        obs.obs_data_set_default_string(settings, "api_url", "")
+        obs.obs_data_set_default_double(settings, "api_refresh_rate", cocorum.static.Delays.api_refresh_default if COCORUM_IMPORTED else 10)
         for attr in (
             self.follower,
             self.subscriber,
@@ -279,12 +278,12 @@ class LocalSettings:
         """Add the toplevel settings to OBS properties"""
         properties = properties or self.orla.props
         obs.obs_properties_add_text(properties, "api_url", "API URL (with key)", obs.OBS_TEXT_PASSWORD)
-        obs.obs_properties_add_int(properties, "api_refresh_rate", "Refresh Rate (seconds)", REFRESH_RATE_MIN, REFRESH_RATE_MAX, 1)
+        obs.obs_properties_add_float(properties, "api_refresh_rate", "Refresh Rate (seconds)", REFRESH_RATE_MIN, REFRESH_RATE_MAX, 1)
 
     def get_from_obs(self, settings):
         """Extract settings from OBS settings data"""
         self.api_url = obs.obs_data_get_string(settings, "api_url")
-        self.api_refresh_rate = obs.obs_data_get_float(settings, "api_refresh_rate")
+        self.api_refresh_rate = obs.obs_data_get_double(settings, "api_refresh_rate")
         for attr in (
             self.follower,
             self.subscriber,
@@ -522,12 +521,12 @@ class OBSRumLiveAlerts():
             print("ERROR: Timers already set.")
             return
         self.__obs_timers_set = True
-        obs.timer_add(self.check_main_rls_api, self.settings.api_refresh_rate * 1000)
-        obs.timer_add(self.next_follower_alert, self.settings.follower.time * 1000)
-        obs.timer_add(self.next_subscriber_alert, self.settings.subscriber.time * 1000)
-        obs.timer_add(self.next_rant_alert, self.settings.rant.time * 1000)
-        obs.timer_add(self.next_raid_alert, self.settings.raid.time * 1000)
-        obs.timer_add(self.next_gift_alert, self.settings.gift.time * 1000)
+        obs.timer_add(self.check_main_rls_api, int(self.settings.api_refresh_rate * 1000))
+        obs.timer_add(self.next_follower_alert, int(self.settings.follower.time * 1000))
+        obs.timer_add(self.next_subscriber_alert, int(self.settings.subscriber.time * 1000))
+        obs.timer_add(self.next_rant_alert, int(self.settings.rant.time * 1000))
+        obs.timer_add(self.next_raid_alert, int(self.settings.raid.time * 1000))
+        obs.timer_add(self.next_gift_alert, int(self.settings.gift.time * 1000))
 
     def remove_obs_timers(self):
         """Remove all the timers we would set for OBS"""
@@ -715,7 +714,8 @@ class OBSRumLiveAlerts():
                 self.set_texts_by_source_names({
                     t.source: t.text.format(
                         username=subscriber.username,
-                        total_cents=subscriber.amount_cents,
+                        dollars=subscriber.amount_cents // 100,
+                        cents=subscriber.amount_cents % 100,
                         )
                     for t in self.settings.subscriber.texts
                     }),
@@ -732,7 +732,8 @@ class OBSRumLiveAlerts():
                 self.set_texts_by_source_names({
                     t.source: t.text.format(
                         username=rant.user.username,
-                        total_cents=rant.rant_price_cents,
+                        dollars=rant.rant_price_cents // 100,
+                        cents=rant.rant_price_cents % 100,
                         message=rant.text,
                         )
                     for t in self.settings.rant.texts
