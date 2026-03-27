@@ -43,8 +43,9 @@ try:
     import cocorum
     print("Cocorum successfully imported.")
     COCORUM_IMPORTED = True
-except ModuleNotFoundError:
+except ModuleNotFoundError as e:
     print("ERROR: You must install the Python library 'cocorum' to use this script.")
+    print(e)
     COCORUM_IMPORTED = False
 
 SCRIPT_DESCRIPTION = """
@@ -57,21 +58,18 @@ SCRIPT_DESCRIPTION = """
 MAX_ALERT_TIME = 6000  # Maximum for how long an alert can be displayed
 
 # Minimum and maximum refresh rates to check the API again
-REFRESH_RATE_MIN = cocorum.static.Delays.api_refresh_minimum
+REFRESH_RATE_MIN = cocorum.static.Delays.api_refresh_minimum if COCORUM_IMPORTED else 10
+
 REFRESH_RATE_MAX = 300
 
 TextSettingsDefaults = namedtuple("TextSettingsDefaults", ["source", "text"])
 
-@dataclass
 class TextSettings:
     """Stored settings for a single alert text source"""
-    #orla: OBSRumLiveAlerts
-    desc: str
-    source: str
-    text: str
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
+    def __init__(self, desc: str, source: str, text: str):
+        """Stored settings for a single alert text source"""
+        self.desc, self.source, self.text = desc, source, text
         self.defaults = TextSettingsDefaults(self.source, self.text)
 
     @property
@@ -100,18 +98,21 @@ class AlertSettingsDefaults(NamedTuple):
     use: bool = True
     time: float = 10
 
-@dataclass
 class AlertSettings:
     """Stored settings for a whole alert type"""
-    orla: OBSRumLiveAlerts
-    desc: str
-    scene_source: str
-    texts: Sequence[TextSettings]
-    use: bool = True
-    time: float = 10
+    def __init__(
+        self,
+        orla: OBSRumLiveAlerts,
+        desc: str,
+        scene_source: str,
+        texts: Sequence[TextSettings],
+        use: bool = True,
+        time: float = 10,
+        ):
+        """Stored settings for a whole alert type"""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
+        self.orla, self.desc, self.scene_source, self.texts, self.use, self.time = \
+            orla, desc, scene_source, texts, use, time
         self.defaults = AlertSettingsDefaults(self.scene_source, self.use, self.time)
 
     @property
@@ -172,94 +173,99 @@ class AlertSettings:
 
         return True
 
-@dataclass
+
 class LocalSettings:
     """Storage for the settings that OBS can modify, with default values"""
-    # Base settings
-    orla: OBSRumLiveAlerts
-    api_url: str = ""  # Rumble Live Stream API URL
-    api_refresh_rate: float = cocorum.static.Delays.api_refresh_default  # API refresh rate
+    def __init__(self, orla: OBSRumLiveAlerts, api_url: str = "", api_refresh_rate: float = cocorum.static.Delays.api_refresh_default if COCORUM_IMPORTED else 10):
+        """Storage for the settings that OBS can modify, with default values"""
+        self.orla, self.api_url, self.api_refresh_rate = \
+            orla, api_url, api_refresh_rate
 
-    follower = AlertSettings(
-        "Follower Alert",
-        scene_source = "Follower Scene",
-        texts = [
-            TextSettings(
-                desc = "Follower Username",
-                source = "Follower Username",
-                text = "{username} just followed!",
-                ),
-            ],
-        )
+        self.follower = AlertSettings(
+            orla = self.orla,
+            desc = "Follower Alert",
+            scene_source = "Follower Scene",
+            texts = [
+                TextSettings(
+                    desc = "Follower Username",
+                    source = "Follower Username",
+                    text = "{username} just followed!",
+                    ),
+                ],
+            )
 
-    subscriber = AlertSettings(
-        "Subscriber Alert",
-        scene_source = "Subscriber Scene",
-        texts = [
-            TextSettings(
-                desc = "Subscriber Username",
-                source = "Subscriber Username",
-                text = "{username} just subscribed!",
-                ),
-            TextSettings(
-                desc = "Subscriber Amount Dollars",
-                source = "Subscriber Amount Dollars",
-                text = "For ${total_cents / 100:.2f}",
-                ),
-            ],
-        )
+        self.subscriber = AlertSettings(
+            orla = self.orla,
+            desc = "Subscriber Alert",
+            scene_source = "Subscriber Scene",
+            texts = [
+                TextSettings(
+                    desc = "Subscriber Username",
+                    source = "Subscriber Username",
+                    text = "{username} just subscribed!",
+                    ),
+                TextSettings(
+                    desc = "Subscriber Amount Dollars",
+                    source = "Subscriber Amount Dollars",
+                    text = "For ${total_cents / 100:.2f}",
+                    ),
+                ],
+            )
 
-    rant = AlertSettings(
-        "Rant Alert",
-        scene_source = "Rant Scene",
-        texts = [
-            TextSettings(
-                desc = "Rant Username",
-                source = "Rant Username",
-                text = "{username} said:",
-                ),
-            TextSettings(
-                desc = "Rant Message",
-                source = "Rant Message",
-                text = "\"{message}\"",
-                ),
-            TextSettings(
-                desc = "Rant Amount Dollars",
-                source = "Rant Amount Dollars",
-                text = "For ${total_cents / 100:.2f}",
-                ),
-            ],
-        )
+        self.rant = AlertSettings(
+            orla = self.orla,
+            desc = "Rant Alert",
+            scene_source = "Rant Scene",
+            texts = [
+                TextSettings(
+                    desc = "Rant Username",
+                    source = "Rant Username",
+                    text = "{username} said:",
+                    ),
+                TextSettings(
+                    desc = "Rant Message",
+                    source = "Rant Message",
+                    text = "\"{message}\"",
+                    ),
+                TextSettings(
+                    desc = "Rant Amount Dollars",
+                    source = "Rant Amount Dollars",
+                    text = "For ${total_cents / 100:.2f}",
+                    ),
+                ],
+            )
 
-    raid = AlertSettings(
-        "Raid Alert",
-        scene_source = "Raid Scene",
-        texts = [
-            TextSettings(
-                desc = "Raid Username",
-                source = "Raid Username",
-                text = "{username} raided!",
-                ),
-            ],
-        )
+        self.raid = AlertSettings(
+            orla = self.orla,
+            desc = "Raid Alert",
+            scene_source = "Raid Scene",
+            texts = [
+                TextSettings(
+                    desc = "Raid Username",
+                    source = "Raid Username",
+                    text = "{username} raided!",
+                    ),
+                ],
+            )
 
-    gift = AlertSettings(
-        "Gift Alert",
-        scene_source = "Gift Scene",
-        texts = [
-            TextSettings(
-                desc = "Gift Info",
-                source = "Gift Info",
-                text = "{username} gifted {gift_count} subs!",
-                ),
-            ],
-        )
+        self.gift = AlertSettings(
+            orla = self.orla,
+            desc = "Gift Alert",
+            scene_source = "Gift Scene",
+            texts = [
+                TextSettings(
+                    desc = "Gift Info",
+                    source = "Gift Info",
+                    text = "{username} gifted {gift_count} subs!",
+                    ),
+                ],
+            )
 
 
     def set_obs_defaults(self, settings):
         """Set the OBS settings data defaults"""
         obs.obs_data_set_default_str(settings, "api_url", "")
-        obs.obs_data_set_default_float(settings, "api_refresh_rate", cocorum.static.Delays.api_refresh_default)
+        obs.obs_data_set_default_float(settings, "api_refresh_rate", cocorum.static.Delays.api_refresh_default if COCORUM_IMPORTED else 10)
         for attr in (
             self.follower,
             self.subscriber,
