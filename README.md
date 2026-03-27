@@ -6,7 +6,7 @@ Replicate the behavior of RumBot 4.5 in OBS Studio, without WebSocket
 - The desire to use custom OBS Studio sub-scene style alerts. If you are fine with slightly more generic web-render alerts, the above website can do that much more simply.
 - A version of OBS Studio that allows you to install Pip wheels to the Python environment it uses for scripts. This basically means, not the Linux Flatpak version.
 - Windows and MacOS only: The latest version of Python supported by OBS Studio, currently 3.12 as of the time of writing. 
-- Linux only: The ability to install Pip packages to the default Python environment for your home directory. If your system Python environment is externally managed, this means setting up an environment that automatically activates when you enter the home directory. I recommend [PyEnv](https://github.com/pyenv/pyenv) personally.
+- Linux only: The ability to install Pip packages to the environment OBS Studio uses. If your system Python environment is externally managed, you're gonna have to do some jerry-rigging. A reliable solution seems to be to create a Python virtual environment based on the system one, then launch OBS Studio with the `PYTHONPATH` environment variable augmented to include that virtual environment's `site-packages` directory.
 - [Cocorum](https://pypi.org/project/cocorum/) installed to that same OBS Studio Python environment.
 
 ## Script Setup
