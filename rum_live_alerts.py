@@ -793,6 +793,8 @@ class OBSRumLiveAlerts():
                 obs.obs_sceneitem_set_visible(subscene_sceneitem, False)
                 self.alerts_mutex.release()
                 print(f"Finished {name} alert.")
+                # Have delay between alerts, so they can exit transition properly
+                return
 
             # Check for a new gift
             if inbox.empty():
