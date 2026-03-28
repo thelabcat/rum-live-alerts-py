@@ -2,11 +2,10 @@
 Replicate the behavior of RumBot 4.5 in OBS Studio, without WebSocket
 
 ## Prerequisites
-- The Rumble Live Stream API not being blocked by Cloudflare for you. I've never had this happen to me, but it's the reason Tex "[VapinGamers](https://x.com/VapinGamers)" had to shut down RumBot 4.5, and switch to the new [RumBot Online](https://rumbot.org/) system.
-- The desire to use custom OBS Studio sub-scene style alerts. If you are fine with slightly more generic web-render alerts, the above website can do that much more simply.
+- The desire to use custom OBS Studio sub-scene style alerts. If you are fine with slightly more generic web-render alerts, I recommend the new [RumBot Online](https://rumbot.org/) system as it is much simpler to use than mine.
 - A version of OBS Studio that allows you to install Pip wheels to the Python environment it uses for scripts. This basically means, not the Linux Flatpak version.
 - Windows and MacOS only: The latest version of Python supported by OBS Studio, currently 3.12 as of the time of writing. 
-- Linux only: The ability to install Pip packages to the environment OBS Studio uses. If your system Python environment is externally managed, you're gonna have to do some jerry-rigging. A reliable solution seems to be to create a Python virtual environment based on the system one, then launch OBS Studio with the `PYTHONPATH` environment variable augmented to include that virtual environment's `site-packages` directory.
+- Linux only: The ability to install Pip packages to the environment OBS Studio uses. If your system Python environment is externally managed, you're gonna have to do some jerry-rigging. A reliable solution seems to be to create a Python virtual environment based on the system one, then add that virtual environment's `site-packages` directory to the `PYTHONPATH` environment variable where you launch OBS Studio.
 - [Cocorum](https://pypi.org/project/cocorum/) installed to that same OBS Studio Python environment.
 
 ## Script Setup
@@ -17,7 +16,13 @@ Replicate the behavior of RumBot 4.5 in OBS Studio, without WebSocket
     3. Ensure that the text at the bottom of those Python Settings now says Python is loaded.
     4. Switch back to the main "Scripts" tab.
 3. Click the "+" button in the bottom left-hand corner of the dialog, and browse for my script, `rum_live_alerts.py`.
-4. Once the script is added, it should immediately show settings on the right. Setup is largely the same concepts as RumBot 4.5 from this point.
+4. Once the script is added, it should immediately show settings on the right. Setup is largely the same concepts as RumBot 4.5 from this point, but there are some differences.
+
+## Key differences
+- Everything for selecting sources is a pull-down. You can still enter source names that are not in the list, even invalid ones, and the script will quietly make note of it in the debug before moving on.
+- The text source pull-downs are each auto-populated with whatever text sources are available in the selected sub-scene. Select the sub-scene for the alert first.
+- I added fields with Python string formatting, so you can put stuff around the text that the script sets. The default values should reflect this, with formatted values inside `{}` curly braces. One thing they don't indicate, however, is that each text field actually checks for *all* the values associated with that alert. If you want to include the username of the rant in the rant message for some reason, you can. I'm planning on adding ways to add or remove text source targeters from an alert at will, so that you can have as many or as few as you want, but for now it's just this.
+- Test alerts are not configurable. They will always have the same values.
 
 Note that what scripts are loaded and what settings they hold seems bound to what OBS Studio "Scene Collection" is loaded. Use this to your advantage to have multiple streaming profiles if desired.
 

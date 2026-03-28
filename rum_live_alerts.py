@@ -970,9 +970,10 @@ using.
 <li><b>Linux Flatpak version of OBS:</b> I don't know how to install Cocorum for this.</li>
 <li><b>Linux system package OBS:</b> This will just use the default
 Python environment in your home directory, so try using Pip normally first. If
-it complains that your default Python environment is externally managed, I
-recommend using <a href="https://github.com/pyenv/pyenv">PyEnv</a> to set up a
-local environment for your home directory: OBS Studio will use it, thankfully.</li>
+it complains that your default Python environment is externally managed, there are a
+few ways around that. The most reliable seems to be creating a virtual environment where you
+can install packages, and then adding it's `site-packages` directory to the `PYTHONPATH`
+environment variable.</li>
 <li><b>Windows:</b> You must tell OBS Studio where to load Python from, via the
 <em>Python Settings</em> tab of this window.</li>
 </ul>
