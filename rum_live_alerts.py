@@ -521,12 +521,12 @@ class OBSRumLiveAlerts():
             print("ERROR: Timers already set.")
             return
         self.__obs_timers_set = True
-        obs.timer_add(self.check_main_rls_api, int(self.settings.api_refresh_rate * 1000))
-        obs.timer_add(self.next_follower_alert, int(self.settings.follower.time * 1000))
-        obs.timer_add(self.next_subscriber_alert, int(self.settings.subscriber.time * 1000))
-        obs.timer_add(self.next_rant_alert, int(self.settings.rant.time * 1000))
-        obs.timer_add(self.next_raid_alert, int(self.settings.raid.time * 1000))
-        obs.timer_add(self.next_gift_alert, int(self.settings.gift.time * 1000))
+        obs.timer_add(check_main_rls_api, int(self.settings.api_refresh_rate * 1000))
+        obs.timer_add(next_follower_alert, int(self.settings.follower.time * 1000))
+        obs.timer_add(next_subscriber_alert, int(self.settings.subscriber.time * 1000))
+        obs.timer_add(next_rant_alert, int(self.settings.rant.time * 1000))
+        obs.timer_add(next_raid_alert, int(self.settings.raid.time * 1000))
+        obs.timer_add(next_gift_alert, int(self.settings.gift.time * 1000))
 
     def remove_obs_timers(self):
         """Remove all the timers we would set for OBS"""
@@ -535,12 +535,12 @@ class OBSRumLiveAlerts():
             print("ERROR: Timers were not set.")
             return
         self.__obs_timers_set = False
-        obs.timer_remove(self.check_main_rls_api)
-        obs.timer_remove(self.next_follower_alert)
-        obs.timer_remove(self.next_subscriber_alert)
-        obs.timer_remove(self.next_rant_alert)
-        obs.timer_remove(self.next_raid_alert)
-        obs.timer_remove(self.next_gift_alert)
+        obs.timer_remove(check_main_rls_api)
+        obs.timer_remove(next_follower_alert)
+        obs.timer_remove(next_subscriber_alert)
+        obs.timer_remove(next_rant_alert)
+        obs.timer_remove(next_raid_alert)
+        obs.timer_remove(next_gift_alert)
 
     def abandon_chat_alert_receiver(self):
         """If we have a chat alert receiver, tell it to stop, and remove its reference"""
@@ -860,7 +860,7 @@ class OBSRumLiveAlerts():
 rla = OBSRumLiveAlerts()
 print("RLA initialized.")
 
-
+# Global wrappers for cource list updates
 def update_follower_source_lists(props, prop, settings):
     """Filter available sources for follower alert displays (global wrapper for RLA instance)"""
     return rla.settings.follower.update_alert_source_lists(settings)
@@ -885,7 +885,33 @@ def update_gift_source_lists(props, prop, settings):
     """Filter available sources for gift alert displays (global wrapper for RLA instance)"""
     return rla.settings.gift.update_alert_source_lists(settings)
 
+# Global wrappers for timed ticks
+def check_main_rls_api():
+    """(global wrapper for RLA instance)"""
+    return rla.check_main_rls_api()
 
+def next_follower_alert():
+    """(global wrapper for RLA instance)"""
+    return rla.next_follower_alert()
+
+def next_subscriber_alert():
+    """(global wrapper for RLA instance)"""
+    return rla.next_subscriber_alert()
+
+def next_rant_alert():
+    """(global wrapper for RLA instance)"""
+    return rla.next_rant_alert()
+
+def next_raid_alert():
+    """(global wrapper for RLA instance)"""
+    return rla.next_raid_alert()
+
+def next_gift_alert():
+    """(global wrapper for RLA instance)"""
+    return rla.next_gift_alert()
+
+
+# Global wrappers for alert tests
 def test_follower_alert(props, prop):
     """Test the follower alert button (global wrapper for RLA instance)"""
     return rla.test_follower_alert(props, prop)
