@@ -187,7 +187,7 @@ class LocalSettings:
             texts = [
                 TextSettings(
                     desc = "Follower username",
-                    source = "Follower username",
+                    source = "Follower Username",
                     text = "{username} just followed!",
                     ),
                 ],
@@ -200,12 +200,12 @@ class LocalSettings:
             texts = [
                 TextSettings(
                     desc = "Subscriber username",
-                    source = "Subscriber username",
+                    source = "Subscriber Username",
                     text = "{username} just subscribed!",
                     ),
                 TextSettings(
                     desc = "Subscriber amount dollars",
-                    source = "Subscriber amount dollars",
+                    source = "Subscriber Amount Dollars",
                     text = "For ${dollars}.{cents}",
                     ),
                 ],
@@ -218,17 +218,17 @@ class LocalSettings:
             texts = [
                 TextSettings(
                     desc = "Rant username",
-                    source = "Rant username",
+                    source = "Rant Username",
                     text = "{username} said:",
                     ),
                 TextSettings(
                     desc = "Rant message",
-                    source = "Rant message",
+                    source = "Rant Message",
                     text = "\"{message}\"",
                     ),
                 TextSettings(
                     desc = "Rant amount dollars",
-                    source = "Rant amount dollars",
+                    source = "Rant Amount Dollars",
                     text = "For ${dollars}.{cents}",
                     ),
                 ],
@@ -241,7 +241,7 @@ class LocalSettings:
             texts = [
                 TextSettings(
                     desc = "Raid username",
-                    source = "Raid username",
+                    source = "Raid Username",
                     text = "{username} raided!",
                     ),
                 ],
@@ -254,7 +254,7 @@ class LocalSettings:
             texts = [
                 TextSettings(
                     desc = "Gift info",
-                    source = "Gift info",
+                    source = "Gift Info",
                     text = "{username} gifted {gift_count} subs!",
                     ),
                 ],
