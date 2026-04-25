@@ -12,6 +12,8 @@ Rumble Live Alerts .PY is distributed in the hope that it will be useful, but WI
 You should have received a copy of the GNU General Public License along with Foobar. If not, see <https://www.gnu.org/licenses/>.
 S.D.G."""
 
+from __future__ import annotations
+
 from collections import namedtuple
 from queue import Queue
 import threading
@@ -34,7 +36,7 @@ you should see all of its settings on the right-hand side.
 If you are on Windows or MacOS, you must have a Python install path set under
 the Python Settings tab of the Scripts dialog.
 """
-    )
+          )
     input("Goodbye! Press enter to exit.")
     quit()
 
@@ -63,6 +65,7 @@ REFRESH_RATE_MAX = 300
 
 TextSettingsDefaults = namedtuple("TextSettingsDefaults", ["source", "text"])
 
+
 class TextSettings:
     """Stored settings for a single alert text source"""
 
@@ -78,18 +81,23 @@ class TextSettings:
 
     def set_obs_defaults(self, settings):
         """Set the OBS settings data defaults"""
-        obs.obs_data_set_default_string(settings, self.slug + "_source", self.defaults.source)
-        obs.obs_data_set_default_string(settings, self.slug + "_text", self.defaults.text)
+        obs.obs_data_set_default_string(
+            settings, self.slug + "_source", self.defaults.source)
+        obs.obs_data_set_default_string(
+            settings, self.slug + "_text", self.defaults.text)
 
     def add_properties(self, properties):
         """Add these text settings to OBS properties"""
-        obs.obs_properties_add_list(properties, self.slug + "_source", self.desc + " text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
-        obs.obs_properties_add_text(properties, self.slug + "_text", self.desc + " format", obs.OBS_TEXT_DEFAULT)
+        obs.obs_properties_add_list(properties, self.slug + "_source", self.desc +
+                                    " text source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_text(
+            properties, self.slug + "_text", self.desc + " format", obs.OBS_TEXT_DEFAULT)
 
     def get_from_obs(self, settings):
         """Extract our settings from OBS settings data"""
         self.source = obs.obs_data_get_string(settings, self.slug + "_source")
         self.text = obs.obs_data_get_string(settings, self.slug + "_text")
+
 
 class AlertSettingsDefaults(NamedTuple):
     """Immutable default value storage for AlertSettings"""
@@ -97,8 +105,10 @@ class AlertSettingsDefaults(NamedTuple):
     use: bool = True
     time: float = 10
 
+
 class AlertSettings:
     """Stored settings for a whole alert type"""
+
     def __init__(
         self,
         orla: OBSRumLiveAlerts,
@@ -107,12 +117,13 @@ class AlertSettings:
         texts: Sequence[TextSettings],
         use: bool = True,
         time: float = 10,
-        ):
+    ):
         """Stored settings for a whole alert type"""
 
         self.orla, self.desc, self.scene_source, self.texts, self.use, self.time = \
             orla, desc, scene_source, texts, use, time
-        self.defaults = AlertSettingsDefaults(self.scene_source, self.use, self.time)
+        self.defaults = AlertSettingsDefaults(
+            self.scene_source, self.use, self.time)
 
     @property
     def slug(self):
@@ -121,23 +132,30 @@ class AlertSettings:
 
     def set_obs_defaults(self, settings):
         """Set the OBS settings data defaults"""
-        obs.obs_data_set_default_bool(settings, self.slug + "_use", self.defaults.use)
-        obs.obs_data_set_default_string(settings, self.slug + "_scene_source", self.defaults.scene_source)
-        obs.obs_data_set_default_double(settings, self.slug + "_time", self.defaults.time)
+        obs.obs_data_set_default_bool(
+            settings, self.slug + "_use", self.defaults.use)
+        obs.obs_data_set_default_string(
+            settings, self.slug + "_scene_source", self.defaults.scene_source)
+        obs.obs_data_set_default_double(
+            settings, self.slug + "_time", self.defaults.time)
         for text in self.texts:
             text.set_obs_defaults(settings)
 
     def add_properties(self, properties=None):
         """Add these alert settings to OBS properties"""
         properties = properties or self.orla.props
-        obs.obs_properties_add_bool(properties, self.slug + "_use", "Use alert")
-        scene_prop = obs.obs_properties_add_list(properties, self.slug + "_scene_source", "Sub-scene to flash", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+        obs.obs_properties_add_bool(
+            properties, self.slug + "_use", "Use alert")
+        scene_prop = obs.obs_properties_add_list(
+            properties, self.slug + "_scene_source", "Sub-scene to flash", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 
         # Add all subscenes to the subscene source selector now
         for subscene_name in self.orla.subscene_names:
-            obs.obs_property_list_add_string(scene_prop, subscene_name, subscene_name)
+            obs.obs_property_list_add_string(
+                scene_prop, subscene_name, subscene_name)
 
-        obs.obs_properties_add_float(properties, self.slug + "_time", "Alert time", 1, MAX_ALERT_TIME, 1)
+        obs.obs_properties_add_float(
+            properties, self.slug + "_time", "Alert time", 1, MAX_ALERT_TIME, 1)
         for text in self.texts:
             text.add_properties(properties)
 
@@ -146,7 +164,8 @@ class AlertSettings:
     def get_from_obs(self, settings):
         """Extract our settings from OBS settings data"""
         self.use = obs.obs_data_get_bool(settings, self.slug + "_use")
-        self.scene_source = obs.obs_data_get_string(settings, self.slug + "_scene_source")
+        self.scene_source = obs.obs_data_get_string(
+            settings, self.slug + "_scene_source")
         self.time = obs.obs_data_get_double(settings, self.slug + "_time")
         for text in self.texts:
             text.get_from_obs(settings)
@@ -156,14 +175,17 @@ class AlertSettings:
         print(f"Updating {self.desc} source lists")
         assert selected_scene or settings, "Must be able to know selected scene source"
 
-        selected_scene = selected_scene or obs.obs_data_get_string(settings, self.slug + "_scene_source")
+        selected_scene = selected_scene or obs.obs_data_get_string(
+            settings, self.slug + "_scene_source")
 
         if selected_scene not in self.orla.scene_names_and_items:
-            print(f"ERROR: Have no record of selected {self.desc} scene '{selected_scene}'")
+            print(
+                f"ERROR: Have no record of selected {self.desc} scene '{selected_scene}'")
             return False
 
         for text in self.texts:
-            prop = obs.obs_properties_get(self.orla.props, text.slug + "_source")
+            prop = obs.obs_properties_get(
+                self.orla.props, text.slug + "_source")
 
             obs.obs_property_list_clear(prop)
             for text_name in self.orla.get_text_items(selected_scene):
@@ -175,129 +197,134 @@ class AlertSettings:
 
 class LocalSettings:
     """Storage for the settings that OBS can modify, with default values"""
+
     def __init__(self, orla: OBSRumLiveAlerts, api_url: str = "", api_refresh_rate: float = cocorum.static.Delays.api_refresh_default if COCORUM_IMPORTED else 10):
         """Storage for the settings that OBS can modify, with default values"""
         self.orla, self.api_url, self.api_refresh_rate = \
             orla, api_url, api_refresh_rate
 
         self.follower = AlertSettings(
-            orla = self.orla,
-            desc = "Follower alert",
-            scene_source = "Follower Scene",
-            texts = [
+            orla=self.orla,
+            desc="Follower alert",
+            scene_source="Follower Scene",
+            texts=[
                 TextSettings(
-                    desc = "Follower username",
-                    source = "Follower Username",
-                    text = "{username} just followed!",
-                    ),
-                ],
-            )
+                    desc="Follower username",
+                    source="Follower Username",
+                    text="{username} just followed!",
+                ),
+            ],
+        )
 
         self.subscriber = AlertSettings(
-            orla = self.orla,
-            desc = "Subscriber alert",
-            scene_source = "Subscriber Scene",
-            texts = [
+            orla=self.orla,
+            desc="Subscriber alert",
+            scene_source="Subscriber Scene",
+            texts=[
                 TextSettings(
-                    desc = "Subscriber username",
-                    source = "Subscriber Username",
-                    text = "{username} just subscribed!",
-                    ),
+                    desc="Subscriber username",
+                    source="Subscriber Username",
+                    text="{username} just subscribed!",
+                ),
                 TextSettings(
-                    desc = "Subscriber amount dollars",
-                    source = "Subscriber Amount Dollars",
-                    text = "For ${dollars}.{cents}",
-                    ),
-                ],
-            )
+                    desc="Subscriber amount dollars",
+                    source="Subscriber Amount Dollars",
+                    text="For ${dollars}.{cents}",
+                ),
+            ],
+        )
 
         self.rant = AlertSettings(
-            orla = self.orla,
-            desc = "Rant alert",
-            scene_source = "Rant Scene",
-            texts = [
+            orla=self.orla,
+            desc="Rant alert",
+            scene_source="Rant Scene",
+            texts=[
                 TextSettings(
-                    desc = "Rant username",
-                    source = "Rant Username",
-                    text = "{username} said:",
-                    ),
+                    desc="Rant username",
+                    source="Rant Username",
+                    text="{username} said:",
+                ),
                 TextSettings(
-                    desc = "Rant message",
-                    source = "Rant Message",
-                    text = "\"{message}\"",
-                    ),
+                    desc="Rant message",
+                    source="Rant Message",
+                    text="\"{message}\"",
+                ),
                 TextSettings(
-                    desc = "Rant amount dollars",
-                    source = "Rant Amount Dollars",
-                    text = "For ${dollars}.{cents}",
-                    ),
-                ],
-            )
+                    desc="Rant amount dollars",
+                    source="Rant Amount Dollars",
+                    text="For ${dollars}.{cents}",
+                ),
+            ],
+        )
 
         self.raid = AlertSettings(
-            orla = self.orla,
-            desc = "Raid alert",
-            scene_source = "Raid Scene",
-            texts = [
+            orla=self.orla,
+            desc="Raid alert",
+            scene_source="Raid Scene",
+            texts=[
                 TextSettings(
-                    desc = "Raid username",
-                    source = "Raid Username",
-                    text = "{username} raided!",
-                    ),
-                ],
-            )
+                    desc="Raid username",
+                    source="Raid Username",
+                    text="{username} raided!",
+                ),
+            ],
+        )
 
         self.gift = AlertSettings(
-            orla = self.orla,
-            desc = "Gift alert",
-            scene_source = "Gift Scene",
-            texts = [
+            orla=self.orla,
+            desc="Gift alert",
+            scene_source="Gift Scene",
+            texts=[
                 TextSettings(
-                    desc = "Gift info",
-                    source = "Gift Info",
-                    text = "{username} gifted {gift_count} subs!",
-                    ),
-                ],
-            )
-
+                    desc="Gift info",
+                    source="Gift Info",
+                    text="{username} gifted {gift_count} subs!",
+                ),
+            ],
+        )
 
     def set_obs_defaults(self, settings):
         """Set the OBS settings data defaults"""
         obs.obs_data_set_default_string(settings, "api_url", "")
-        obs.obs_data_set_default_double(settings, "api_refresh_rate", cocorum.static.Delays.api_refresh_default if COCORUM_IMPORTED else 10)
+        obs.obs_data_set_default_double(
+            settings, "api_refresh_rate", cocorum.static.Delays.api_refresh_default if COCORUM_IMPORTED else 10)
         for attr in (
             self.follower,
             self.subscriber,
             self.rant,
             self.raid,
             self.gift,
-            ):
+        ):
             attr.set_obs_defaults(settings)
 
     def add_master_properties(self, properties=None):
         """Add the toplevel settings to OBS properties"""
         properties = properties or self.orla.props
-        obs.obs_properties_add_text(properties, "api_url", "API URL (with key)", obs.OBS_TEXT_PASSWORD)
-        obs.obs_properties_add_float(properties, "api_refresh_rate", "Refresh Rate (seconds)", REFRESH_RATE_MIN, REFRESH_RATE_MAX, 1)
+        obs.obs_properties_add_text(
+            properties, "api_url", "API URL (with key)", obs.OBS_TEXT_PASSWORD)
+        obs.obs_properties_add_float(
+            properties, "api_refresh_rate", "Refresh Rate (seconds)", REFRESH_RATE_MIN, REFRESH_RATE_MAX, 1)
 
     def get_from_obs(self, settings):
         """Extract settings from OBS settings data"""
         self.api_url = obs.obs_data_get_string(settings, "api_url")
-        self.api_refresh_rate = obs.obs_data_get_double(settings, "api_refresh_rate")
+        self.api_refresh_rate = obs.obs_data_get_double(
+            settings, "api_refresh_rate")
         for attr in (
             self.follower,
             self.subscriber,
             self.rant,
             self.raid,
             self.gift,
-            ):
+        ):
             attr.get_from_obs(settings)
 
     def update_all_source_lists(self):
         """Update the available text sources to select"""
         return sum(
             (
-                attr.update_alert_source_lists(selected_scene=attr.defaults.scene_source)
+                attr.update_alert_source_lists(
+                    selected_scene=attr.defaults.scene_source)
                 for attr in (
                     self.follower,
                     self.subscriber,
@@ -306,7 +333,7 @@ class LocalSettings:
                     self.gift,
                 )
             )
-            ) > 0
+        ) > 0
 
 
 class TestAlert:
@@ -321,6 +348,7 @@ class TestAlert:
         username = "NOBODY"
     rant_price_cents = 316
     text = "Soli Deo gloria."
+
     class gift_purchase_notification:
         """Gift purchase notification data dummy subclass"""
         total_gifts = 37
@@ -335,7 +363,7 @@ class ChatAlertReceiver(threading.Thread):
         rant_queue: Queue,
         raid_queue: Queue,
         gift_queue: Queue,
-            ):
+    ):
         """
         Connect to a Rumble chat, and push alerts from it to queues
 
@@ -421,43 +449,60 @@ class OBSRumLiveAlerts():
         self.get_scenes_and_sources()
 
         # Base settings
-        obs.obs_properties_add_text(self.props, "base_settings_header", "<h2>Base Settings</h2>", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_text(
+            self.props, "base_settings_header", "<h2>Base Settings</h2>", obs.OBS_TEXT_INFO)
         self.settings.add_master_properties(self.props)
 
         # Settings for the follower alert
-        obs.obs_properties_add_text(self.props, "follower_alert_header", "<hr><h2>Follower Alert</h2>", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_text(
+            self.props, "follower_alert_header", "<hr><h2>Follower Alert</h2>", obs.OBS_TEXT_INFO)
         follower_scene_prop = self.settings.follower.add_properties(self.props)
         # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
-        obs.obs_property_set_modified_callback(follower_scene_prop, update_follower_source_lists)
-        obs.obs_properties_add_button(self.props, "follower_alert_test", "Queue fake follower", test_follower_alert)
+        obs.obs_property_set_modified_callback(
+            follower_scene_prop, update_follower_source_lists)
+        obs.obs_properties_add_button(
+            self.props, "follower_alert_test", "Queue fake follower", test_follower_alert)
 
         # Settings for the subscriber alert
-        obs.obs_properties_add_text(self.props, "subscriber_alert_header", "<hr><h2>Subscriber Alert</h2>", obs.OBS_TEXT_INFO)
-        subscriber_scene_prop = self.settings.subscriber.add_properties(self.props)
+        obs.obs_properties_add_text(
+            self.props, "subscriber_alert_header", "<hr><h2>Subscriber Alert</h2>", obs.OBS_TEXT_INFO)
+        subscriber_scene_prop = self.settings.subscriber.add_properties(
+            self.props)
         # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
-        obs.obs_property_set_modified_callback(subscriber_scene_prop, update_subscriber_source_lists)
-        obs.obs_properties_add_button(self.props, "subscriber_alert_test", "Queue fake subscriber", test_subscriber_alert)
+        obs.obs_property_set_modified_callback(
+            subscriber_scene_prop, update_subscriber_source_lists)
+        obs.obs_properties_add_button(
+            self.props, "subscriber_alert_test", "Queue fake subscriber", test_subscriber_alert)
 
         # Settings for the rant alert
-        obs.obs_properties_add_text(self.props, "rant_alert_header", "<hr><h2>Rant Alert</h2>", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_text(
+            self.props, "rant_alert_header", "<hr><h2>Rant Alert</h2>", obs.OBS_TEXT_INFO)
         rant_scene_prop = self.settings.rant.add_properties(self.props)
         # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
-        obs.obs_property_set_modified_callback(rant_scene_prop, update_rant_source_lists)
-        obs.obs_properties_add_button(self.props, "rant_alert_test", "Queue fake rant", test_rant_alert)
+        obs.obs_property_set_modified_callback(
+            rant_scene_prop, update_rant_source_lists)
+        obs.obs_properties_add_button(
+            self.props, "rant_alert_test", "Queue fake rant", test_rant_alert)
 
         # Settings for the raid alert
-        obs.obs_properties_add_text(self.props, "raid_alert_header", "<hr><h2>Raid Alert</h2>", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_text(
+            self.props, "raid_alert_header", "<hr><h2>Raid Alert</h2>", obs.OBS_TEXT_INFO)
         raid_scene_prop = self.settings.raid.add_properties(self.props)
         # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
-        obs.obs_property_set_modified_callback(raid_scene_prop, update_raid_source_lists)
-        obs.obs_properties_add_button(self.props, "raid_alert_test", "Queue fake raid", test_raid_alert)
+        obs.obs_property_set_modified_callback(
+            raid_scene_prop, update_raid_source_lists)
+        obs.obs_properties_add_button(
+            self.props, "raid_alert_test", "Queue fake raid", test_raid_alert)
 
         # Settings for the gift alert
-        obs.obs_properties_add_text(self.props, "gift_alert_header", "<hr><h2>Gift Alert</h2>", obs.OBS_TEXT_INFO)
+        obs.obs_properties_add_text(
+            self.props, "gift_alert_header", "<hr><h2>Gift Alert</h2>", obs.OBS_TEXT_INFO)
         gift_scene_prop = self.settings.gift.add_properties(self.props)
         # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
-        obs.obs_property_set_modified_callback(gift_scene_prop, update_gift_source_lists)
-        obs.obs_properties_add_button(self.props, "gift_alert_test", "Queue fake gift", test_gift_alert)
+        obs.obs_property_set_modified_callback(
+            gift_scene_prop, update_gift_source_lists)
+        obs.obs_properties_add_button(
+            self.props, "gift_alert_test", "Queue fake gift", test_gift_alert)
 
         print("Updating text display selectors")
         self.settings.update_all_source_lists()
@@ -481,7 +526,8 @@ class OBSRumLiveAlerts():
                 # We had no API before
                 if not self.api:
                     print("Creating new Cocorum API object")
-                    self.api = cocorum.RumbleAPI(self.settings.api_url, refresh_rate=self.settings.api_refresh_rate)
+                    self.api = cocorum.RumbleAPI(
+                        self.settings.api_url, refresh_rate=self.settings.api_refresh_rate)
 
                 # We do have an API but the URL is outdated
                 elif self.api.api_url != self.settings.api_url:
@@ -509,10 +555,10 @@ class OBSRumLiveAlerts():
     def get_text_items(self, scene_name: str):
         """Pull up the records of all text type sources within a scene"""
         return [
-                item_name
-                for item_name in self.scene_names_and_items.get(scene_name, [])
-                if self.source_names_to_types.get(item_name, "NULL_RECORD") in ("text_gdiplus", "text_ft2_source")
-                ]
+            item_name
+            for item_name in self.scene_names_and_items.get(scene_name, [])
+            if self.source_names_to_types.get(item_name, "NULL_RECORD") in ("text_gdiplus", "text_ft2_source")
+        ]
 
     def set_obs_timers(self):
         """Set all the timers we need in OBS"""
@@ -521,9 +567,12 @@ class OBSRumLiveAlerts():
             print("ERROR: Timers already set.")
             return
         self.__obs_timers_set = True
-        obs.timer_add(check_main_rls_api, int(self.settings.api_refresh_rate * 1000))
-        obs.timer_add(next_follower_alert, int(self.settings.follower.time * 1000))
-        obs.timer_add(next_subscriber_alert, int(self.settings.subscriber.time * 1000))
+        obs.timer_add(check_main_rls_api, int(
+            self.settings.api_refresh_rate * 1000))
+        obs.timer_add(next_follower_alert, int(
+            self.settings.follower.time * 1000))
+        obs.timer_add(next_subscriber_alert, int(
+            self.settings.subscriber.time * 1000))
         obs.timer_add(next_rant_alert, int(self.settings.rant.time * 1000))
         obs.timer_add(next_raid_alert, int(self.settings.raid.time * 1000))
         obs.timer_add(next_gift_alert, int(self.settings.gift.time * 1000))
@@ -571,7 +620,8 @@ class OBSRumLiveAlerts():
         sources = obs.obs_enum_sources()
         if sources:
             print("Getting non-subscene source names")
-            self.source_names_to_types = {obs.obs_source_get_name(s): obs.obs_source_get_unversioned_id(s) for s in sources}
+            self.source_names_to_types = {obs.obs_source_get_name(
+                s): obs.obs_source_get_unversioned_id(s) for s in sources}
             print("Releasing source list")
             obs.source_list_release(sources)
         else:
@@ -581,7 +631,8 @@ class OBSRumLiveAlerts():
         scene_sources = obs.obs_frontend_get_scenes()
         if scene_sources:
             print("Getting scene names")
-            self.scene_names_and_items = {obs.obs_source_get_name(s): [] for s in scene_sources}
+            self.scene_names_and_items = {
+                obs.obs_source_get_name(s): [] for s in scene_sources}
             print("Releasing scene sources list")
             obs.source_list_release(scene_sources)
         else:
@@ -591,34 +642,35 @@ class OBSRumLiveAlerts():
         self.subscene_names = []
         for scene_name, item_names in self.scene_names_and_items.items():
             print(scene_name + ":")
-            #print("\t(getting scene items)")
+            # print("\t(getting scene items)")
             scene = obs.obs_get_scene_by_name(scene_name)
             scene_items = obs.obs_scene_enum_items(scene)
             if scene_items:
                 for item in scene_items:
                     # Get scene item as source and name
-                    #print("\t(getting source of scene item)")
+                    # print("\t(getting source of scene item)")
                     # Does not increment the reference, do not independently release
                     source = obs.obs_sceneitem_get_source(item)
-                    #print("\t(getting source name)")
+                    # print("\t(getting source name)")
                     name = obs.obs_source_get_name(source)
 
                     # Make record that the item is in this scene
                     item_names.append(name)
 
                     # Is this item a subscene source?
-                    #print("\t(identifying source type)")
+                    # print("\t(identifying source type)")
                     # If this is not a subscene source, we will have a record of it already
-                    unversioned_id = self.source_names_to_types.get(name) or obs.obs_source_get_unversioned_id(source)
+                    unversioned_id = self.source_names_to_types.get(
+                        name) or obs.obs_source_get_unversioned_id(source)
                     if unversioned_id == "scene":
                         print(f"\t{unversioned_id}: {name} <--")
                         self.subscene_names.append(name)
                     else:
                         print(f"\t{unversioned_id}: {name}")
-                    #print("\t(releasing that source)\n")
+                    # print("\t(releasing that source)\n")
                     # obs.obs_source_release(source)
 
-                #print("Releasing scene items list")
+                # print("Releasing scene items list")
                 obs.sceneitem_list_release(scene_items)
             else:
                 print("\t--No items in this scene--")
@@ -629,7 +681,8 @@ class OBSRumLiveAlerts():
 
         source = obs.obs_get_source_by_name(source_name)
         if not source:
-            print(f"ERROR: Could not set text for source '{source_name}': Source not found.")
+            print(
+                f"ERROR: Could not set text for source '{source_name}': Source not found.")
             return
         setter_data = obs.obs_data_create()
 
@@ -679,7 +732,7 @@ class OBSRumLiveAlerts():
                 self.rant_inbox,
                 self.raid_inbox,
                 self.gift_inbox,
-                )
+            )
             self.chat_alert_receiver.start()
 
         # There is a livestream, so it may have new rants
@@ -698,10 +751,10 @@ class OBSRumLiveAlerts():
                 self.set_texts_by_source_names({
                     t.source: t.text.format(
                         username=follower.username,
-                        )
+                    )
                     for t in self.settings.follower.texts
-                    }),
-                )
+                }),
+        )
 
     def next_subscriber_alert(self):
         """Do the next subscriber alert, finishing up the last one"""
@@ -716,10 +769,10 @@ class OBSRumLiveAlerts():
                         username=subscriber.username,
                         dollars=subscriber.amount_cents // 100,
                         cents=subscriber.amount_cents % 100,
-                        )
+                    )
                     for t in self.settings.subscriber.texts
-                    }),
-                )
+                }),
+        )
 
     def next_rant_alert(self):
         """Do the next rant alert, finishing up the last one"""
@@ -735,10 +788,10 @@ class OBSRumLiveAlerts():
                         dollars=rant.rant_price_cents // 100,
                         cents=rant.rant_price_cents % 100,
                         message=rant.text,
-                        )
+                    )
                     for t in self.settings.rant.texts
-                    }),
-                )
+                }),
+        )
 
     def next_raid_alert(self):
         """Do the next raid alert, finishing up the last one"""
@@ -751,10 +804,10 @@ class OBSRumLiveAlerts():
                 self.set_texts_by_source_names({
                     t.source: t.text.format(
                         username=raid.user.username,
-                        )
+                    )
                     for t in self.settings.raid.texts
-                    }),
-                )
+                }),
+        )
 
     def next_gift_alert(self):
         """Do the next gift alert, finishing up the last one"""
@@ -768,10 +821,10 @@ class OBSRumLiveAlerts():
                     t.source: t.text.format(
                         username=gift.user.username,
                         gift_count=gift.gift_purchase_notification.total_gifts
-                        )
+                    )
                     for t in self.settings.gift.texts
-                    }),
-                )
+                }),
+        )
 
     def __next_generic_alert(self, name: str, alert_scene_source: str, inbox: Queue, set_to_use: bool, config_alert_display: callable):
         """Do the next generic alert, finishing up the last one"""
@@ -781,11 +834,13 @@ class OBSRumLiveAlerts():
 
         # These do not increase the refcounter, release the above instead
         current_scene = obs.obs_scene_from_source(current_scenesource)
-        subscene_sceneitem = obs.obs_scene_find_source(current_scene, alert_scene_source)
+        subscene_sceneitem = obs.obs_scene_find_source(
+            current_scene, alert_scene_source)
 
         try:
             if not subscene_sceneitem:
-                print(f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{alert_scene_source}'")
+                print(
+                    f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{alert_scene_source}'")
                 return
 
             # Finish up the last gift alert
@@ -861,6 +916,8 @@ rla = OBSRumLiveAlerts()
 print("RLA initialized.")
 
 # Global wrappers for cource list updates
+
+
 def update_follower_source_lists(props, prop, settings):
     """Filter available sources for follower alert displays (global wrapper for RLA instance)"""
     return rla.settings.follower.update_alert_source_lists(settings)
@@ -886,25 +943,32 @@ def update_gift_source_lists(props, prop, settings):
     return rla.settings.gift.update_alert_source_lists(settings)
 
 # Global wrappers for timed ticks
+
+
 def check_main_rls_api():
     """(global wrapper for RLA instance)"""
     return rla.check_main_rls_api()
+
 
 def next_follower_alert():
     """(global wrapper for RLA instance)"""
     return rla.next_follower_alert()
 
+
 def next_subscriber_alert():
     """(global wrapper for RLA instance)"""
     return rla.next_subscriber_alert()
+
 
 def next_rant_alert():
     """(global wrapper for RLA instance)"""
     return rla.next_rant_alert()
 
+
 def next_raid_alert():
     """(global wrapper for RLA instance)"""
     return rla.next_raid_alert()
+
 
 def next_gift_alert():
     """(global wrapper for RLA instance)"""
@@ -981,5 +1045,5 @@ environment variable.</li>
 <p>Goodbye!</p>
             """,
             obs.OBS_TEXT_INFO,
-            )
+        )
         return props
