@@ -1031,13 +1031,13 @@ Note that it must be installed to the Python environment that OBS Studio is
 using.
 </p>
 <ul>
-<li><b>Linux Flatpak version of OBS:</b> I don't know how to install Cocorum for this.</li>
-<li><b>Linux system package OBS:</b> This will just use the default
-Python environment in your home directory, so try using Pip normally first. If
-it complains that your default Python environment is externally managed, there are a
-few ways around that. The most reliable seems to be creating a virtual environment where you
-can install packages, and then adding it's `site-packages` directory to the `PYTHONPATH`
-environment variable.</li>
+<li><b>Linux:</b> If Pip complains that your default Python environment is
+externally managed, or you are using the Flatpak version of OBS, create a
+Python virtual environment, install cocorum to it, and then add its
+`site-packages` directory to the `PYTHONPATH` environment variable for OBS.
+For Flatpak, you should do this in Flatpak settings (possibly via Flatseal).
+For regular system pckages or some other form, you can add it to the desktop
+configuration file.</li>
 <li><b>Windows:</b> You must tell OBS Studio where to load Python from, via the
 <em>Python Settings</em> tab of this window.</li>
 </ul>
