@@ -19,6 +19,7 @@ from queue import Queue
 import threading
 from typing import NamedTuple
 from typing import Sequence
+from warnings import warn
 try:
     import obspython as obs
 except ModuleNotFoundError:
@@ -300,10 +301,16 @@ class LocalSettings:
     def add_master_properties(self, properties=None):
         """Add the toplevel settings to OBS properties"""
         properties = properties or self.orla.props
-        obs.obs_properties_add_text(
+        api_url_prop = obs.obs_properties_add_text(
             properties, "api_url", "API URL (with key)", obs.OBS_TEXT_PASSWORD)
+        obs.obs_property_set_modified_callback(api_url_prop, update_api_url_err_disp)
+
         obs.obs_properties_add_float(
             properties, "api_refresh_rate", "Refresh Rate (seconds)", REFRESH_RATE_MIN, REFRESH_RATE_MAX, 1)
+
+        api_url_error_prop = obs.obs_properties_add_text(
+            properties, "api_url_error", f"You should not see this text.", obs.OBS_TEXT_INFO_WARNING)
+        obs.obs_property_set_visible(api_url_error_prop, False)
 
     def get_from_obs(self, settings):
         """Extract settings from OBS settings data"""
@@ -373,9 +380,6 @@ class ChatAlertReceiver(threading.Thread):
 
         super().__init__(daemon=True)
 
-        self.chat = cocorum.chatapi.ChatAPI(stream_id)
-        self.chat.clear_mailbox()
-
         self.rant_queue = rant_queue
         self.raid_queue = raid_queue
         self.gift_queue = gift_queue
@@ -385,29 +389,31 @@ class ChatAlertReceiver(threading.Thread):
 
     def run(self):
         """The threaded code"""
-        self.running = True
-        while self.running:
-            # The chat closed, gracefully exit
-            message = self.chat.get_message()
-            if not message:
-                print("Chat", self.chat.stream_id_b10, "closed.")
-                self.running = False
-                continue
+        with cocorum.chatapi.ChatAPI(stream_id) as self.chat:
+            self.chat.clear_mailbox()
+            self.running = True
+            while self.running:
+                # The chat closed, gracefully exit
+                message = self.chat.get_message()
+                if not message:
+                    print("Chat", self.chat.stream_id_b10, "closed.")
+                    self.running = False
+                    continue
 
-            # The message is a rant
-            if message.is_rant:
-                self.rant_queue.put(message)
-                continue
+                # The message is a rant
+                if message.is_rant:
+                    self.rant_queue.put(message)
+                    continue
 
-            # The message is a raid
-            if message.raid_notification:
-                self.raid_queue.put(message)
-                continue
+                # The message is a raid
+                if message.raid_notification:
+                    self.raid_queue.put(message)
+                    continue
 
-            # The message is a gift purchase
-            if message.gift_purchase_notification:
-                self.gift_queue.put(message)
-                continue
+                # The message is a gift purchase
+                if message.gift_purchase_notification:
+                    self.gift_queue.put(message)
+                    continue
 
 
 class OBSRumLiveAlerts():
@@ -419,6 +425,7 @@ class OBSRumLiveAlerts():
         self.__obs_timers_set = False
         self.alerts_mutex = threading.Lock()
         self.api = None
+        self.api_url_error = None
         self.livestream = None
         self.chat_alert_receiver = None
 
@@ -536,9 +543,18 @@ class OBSRumLiveAlerts():
 
             # The API URL was invalid
             except (AssertionError, cocorum.requests.exceptions.RequestException) as e:
-                print(f"API connection failed: {e}")
+                warn(f"API connection failed: {e}")
                 self.settings.api_url = ""
+                self.api_url_error = e
                 return
+
+            # The API URL succeeded
+            else:
+                self.api_url_error = None
+
+            # Make sure the error label updates in the UI
+            if self.props:
+                obs.obs_properties_apply_settings(self.props, settings)
 
             # Reset livestream reference
             self.livestream = None
@@ -594,6 +610,7 @@ class OBSRumLiveAlerts():
     def abandon_chat_alert_receiver(self):
         """If we have a chat alert receiver, tell it to stop, and remove its reference"""
         if self.chat_alert_receiver:
+            self.chat_alert_receiver.chat.close()  # It should automatically do this, but doing it again shouldn't cause problems and this will make it exit faster
             self.chat_alert_receiver.running = False
             self.chat_alert_receiver = None
 
@@ -911,11 +928,28 @@ class OBSRumLiveAlerts():
         print("Test gift queued.")
         return False
 
+    def update_api_url_err_disp(self, props, prop, settings):
+        """Update (or clear) the API URL error label. Returns True to refresh the UI."""
+        error_prop = obs.obs_properties_get(props, "api_url_error")
+        if not error_prop:
+            return False
+
+        if self.api_url_error:
+            # Orange via OBS_TEXT_INFO_WARNING; optional extra HTML color if you want
+            text = f"URL failed to load: {self.api_url_error}"
+            obs.obs_property_set_description(error_prop, text)
+            obs.obs_property_set_visible(error_prop, True)
+        else:
+            obs.obs_property_set_description(error_prop, "")
+            obs.obs_property_set_visible(error_prop, False)
+
+        return True  # required so OBS refreshes the properties widgets
+
 
 rla = OBSRumLiveAlerts()
 print("RLA initialized.")
 
-# Global wrappers for cource list updates
+# Global wrappers for source list updates
 
 
 def update_follower_source_lists(props, prop, settings):
@@ -1004,6 +1038,12 @@ def test_gift_alert(props, prop):
 def script_description() -> str:
     """The title and description for the script"""
     return SCRIPT_DESCRIPTION
+
+
+# Global wrapper for URL error text
+def update_api_url_err_disp(props, prop, settings):
+    """Update (or clear) the API URL error label. Returns True to refresh the UI."""
+    return rla.update_api_url_err_disp(props, prop, settings):
 
 
 # Cocorum is available, we can continue as normal
