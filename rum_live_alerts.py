@@ -544,7 +544,7 @@ class OBSRumLiveAlerts():
 
             # The API URL was invalid
             except (AssertionError, cocorum.requests.exceptions.RequestException) as e:
-                warn(f"API connection failed: {e}")
+                print(f"ERROR: API connection failed: {e}")
                 self.settings.api_url = ""
                 self.api_url_error = e
                 return
