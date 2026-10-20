@@ -308,9 +308,10 @@ class LocalSettings:
         obs.obs_properties_add_float(
             properties, "api_refresh_rate", "Refresh Rate (seconds)", REFRESH_RATE_MIN, REFRESH_RATE_MAX, 1)
 
-        api_url_error_prop = obs.obs_properties_add_text(
-            properties, "api_url_error", f"You should not see this text.", obs.OBS_TEXT_INFO_WARNING)
-        obs.obs_property_set_visible(api_url_error_prop, False)
+        error_prop = obs.obs_properties_add_text(
+            properties, "api_url_error", "You should not see this text.", obs.OBS_TEXT_INFO)
+        obs.obs_property_text_set_info_type(error_prop, obs.OBS_TEXT_INFO_WARNING)
+        obs.obs_property_set_visible(error_prop, False)
 
     def get_from_obs(self, settings):
         """Extract settings from OBS settings data"""
@@ -1043,7 +1044,7 @@ def script_description() -> str:
 # Global wrapper for URL error text
 def update_api_url_err_disp(props, prop, settings):
     """Update (or clear) the API URL error label. Returns True to refresh the UI."""
-    return rla.update_api_url_err_disp(props, prop, settings):
+    return rla.update_api_url_err_disp(props, prop, settings)
 
 
 # Cocorum is available, we can continue as normal
