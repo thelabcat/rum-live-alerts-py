@@ -538,16 +538,16 @@ class OBSRumLiveAlerts():
                         self.settings.api_url, refresh_rate=self.settings.api_refresh_rate)
 
                 # We do have an API but the URL is outdated
-                elif self.api.api_url != self.settings.api_url:
-                    print("Updating Cocorum API URL")
+                elif self.api.api_url != self.settings.api_url or self.api.refresh_rate != self.settings.api_refresh_rate:
+                    print("Updating Cocorum API URL and refresh rate")
                     self.api.api_url = self.settings.api_url
+                    self.api.refresh_rate = self.settings.api_refresh_rate
 
             # The API URL was invalid
             except (AssertionError, cocorum.requests.exceptions.RequestException) as e:
                 print(f"ERROR: API connection failed: {e}")
                 self.settings.api_url = ""
                 self.api_url_error = e
-                return
 
             # The API URL succeeded
             else:
@@ -561,9 +561,10 @@ class OBSRumLiveAlerts():
             self.livestream = None
             self.abandon_chat_alert_receiver()
 
-            # Clear these mailboxes
-            print("Stale new followers: ", self.api.new_followers)
-            print("Stale new subscribers: ", self.api.new_subscribers)
+            if not self.api_url_error:
+                # Clear these mailboxes
+                print("Stale new followers: ", self.api.new_followers)
+                print("Stale new subscribers: ", self.api.new_subscribers)
 
             self.set_obs_timers()
 
@@ -719,7 +720,8 @@ class OBSRumLiveAlerts():
         """Check if there are any new alertables in the main RLS API and add them to the inboxes"""
         print("Checking main RLS API")
         # We have no API URL or it was invalid
-        if not self.settings.api_url:
+        if not self.settings.api_url or self.api_url_error:
+            print("ERROR: No valid API URL to check")
             return
 
         for new_follower in self.api.new_followers:
