@@ -14,7 +14,7 @@ Replicate the behavior of RumBot 4.5 in OBS Studio, without WebSocket
     2. Browse for your Python install path. If you're not sure where this is, run `where python` in Windows Terminal, or I think `which python` on MacOS.
     3. Ensure that the text at the bottom of those Python Settings now says Python is loaded.
     4. Switch back to the main "Scripts" tab.
-3. Click the "+" button in the bottom left-hand corner of the dialog, and browse for my script, `rum_live_alerts.py`.
+3. Click the "+" button in the bottom left-hand corner of the dialog, and browse for my script, `rum_live_alerts.py`, wherever you downloaded it.
 4. Once the script is added, it should immediately show settings on the right. Setup is largely the same concepts as RumBot 4.5 from this point, but there are some differences.
 
 ## Key differences
