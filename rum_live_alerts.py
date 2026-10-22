@@ -471,7 +471,7 @@ class OBSRumLiveAlerts():
         obs.obs_property_set_modified_callback(
             follower_scene_prop, update_follower_source_lists)
         obs.obs_properties_add_button(
-            self.props, "follower_alert_test", "Queue fake follower", test_follower_alert)
+            self.props, "follower_alert_test", "Queue a follower test", test_follower_alert)
 
         # Settings for the subscriber alert
         obs.obs_properties_add_text(
@@ -482,7 +482,7 @@ class OBSRumLiveAlerts():
         obs.obs_property_set_modified_callback(
             subscriber_scene_prop, update_subscriber_source_lists)
         obs.obs_properties_add_button(
-            self.props, "subscriber_alert_test", "Queue fake subscriber", test_subscriber_alert)
+            self.props, "subscriber_alert_test", "Queue a subscriber test", test_subscriber_alert)
 
         # Settings for the rant alert
         obs.obs_properties_add_text(
@@ -492,7 +492,7 @@ class OBSRumLiveAlerts():
         obs.obs_property_set_modified_callback(
             rant_scene_prop, update_rant_source_lists)
         obs.obs_properties_add_button(
-            self.props, "rant_alert_test", "Queue fake rant", test_rant_alert)
+            self.props, "rant_alert_test", "Queue a rant test", test_rant_alert)
 
         # Settings for the raid alert
         obs.obs_properties_add_text(
@@ -502,7 +502,7 @@ class OBSRumLiveAlerts():
         obs.obs_property_set_modified_callback(
             raid_scene_prop, update_raid_source_lists)
         obs.obs_properties_add_button(
-            self.props, "raid_alert_test", "Queue fake raid", test_raid_alert)
+            self.props, "raid_alert_test", "Queue a raid test", test_raid_alert)
 
         # Settings for the gift alert
         obs.obs_properties_add_text(
@@ -512,7 +512,7 @@ class OBSRumLiveAlerts():
         obs.obs_property_set_modified_callback(
             gift_scene_prop, update_gift_source_lists)
         obs.obs_properties_add_button(
-            self.props, "gift_alert_test", "Queue fake gift", test_gift_alert)
+            self.props, "gift_alert_test", "Queue a gift test", test_gift_alert)
 
         print("Updating text display selectors")
         self.settings.update_all_source_lists()
