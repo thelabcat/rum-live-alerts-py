@@ -304,6 +304,8 @@ class LocalSettings:
         api_url_prop = obs.obs_properties_add_text(
             properties, "api_url", "API URL (with key)", obs.OBS_TEXT_PASSWORD)
         obs.obs_property_set_modified_callback(api_url_prop, update_api_url_err_disp)
+        obs.obs_properties_add_text(
+            properties, "api_obtain_link", "<a href='https://rumble.com/account/livestream-api'>Click here to get a URL with key from Rumble.</a>", obs.OBS_TEXT_INFO)
 
         obs.obs_properties_add_float(
             properties, "api_refresh_rate", "Refresh Rate (seconds)", REFRESH_RATE_MIN, REFRESH_RATE_MAX, 1)
