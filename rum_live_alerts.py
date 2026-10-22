@@ -383,6 +383,8 @@ class ChatAlertReceiver(threading.Thread):
 
         super().__init__(daemon=True)
 
+        self.stream_id = stream_id
+        self.chat = None
         self.rant_queue = rant_queue
         self.raid_queue = raid_queue
         self.gift_queue = gift_queue
@@ -392,7 +394,7 @@ class ChatAlertReceiver(threading.Thread):
 
     def run(self):
         """The threaded code"""
-        with cocorum.chatapi.ChatAPI(stream_id) as self.chat:
+        with cocorum.chatapi.ChatAPI(self.stream_id) as self.chat:
             self.chat.clear_mailbox()
             self.running = True
             while self.running:
