@@ -469,7 +469,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_text(
             self.props, "follower_alert_header", "<hr><h2>Follower Alert</h2>", obs.OBS_TEXT_INFO)
         follower_scene_prop = self.settings.follower.add_properties(self.props)
-        # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
+        # We have to bind the test button to a global callback instead of an instance method
         obs.obs_property_set_modified_callback(
             follower_scene_prop, update_follower_source_lists)
         obs.obs_properties_add_button(
@@ -480,7 +480,7 @@ class OBSRumLiveAlerts():
             self.props, "subscriber_alert_header", "<hr><h2>Subscriber Alert</h2>", obs.OBS_TEXT_INFO)
         subscriber_scene_prop = self.settings.subscriber.add_properties(
             self.props)
-        # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
+        # We have to bind the test button to a global callback instead of an instance method
         obs.obs_property_set_modified_callback(
             subscriber_scene_prop, update_subscriber_source_lists)
         obs.obs_properties_add_button(
@@ -490,7 +490,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_text(
             self.props, "rant_alert_header", "<hr><h2>Rant Alert</h2>", obs.OBS_TEXT_INFO)
         rant_scene_prop = self.settings.rant.add_properties(self.props)
-        # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
+        # We have to bind the test button to a global callback instead of an instance method
         obs.obs_property_set_modified_callback(
             rant_scene_prop, update_rant_source_lists)
         obs.obs_properties_add_button(
@@ -500,7 +500,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_text(
             self.props, "raid_alert_header", "<hr><h2>Raid Alert</h2>", obs.OBS_TEXT_INFO)
         raid_scene_prop = self.settings.raid.add_properties(self.props)
-        # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
+        # We have to bind the test button to a global callback instead of an instance method
         obs.obs_property_set_modified_callback(
             raid_scene_prop, update_raid_source_lists)
         obs.obs_properties_add_button(
@@ -510,7 +510,7 @@ class OBSRumLiveAlerts():
         obs.obs_properties_add_text(
             self.props, "gift_alert_header", "<hr><h2>Gift Alert</h2>", obs.OBS_TEXT_INFO)
         gift_scene_prop = self.settings.gift.add_properties(self.props)
-        # We have to bind the test button to a global callback instead of an instance method, because the OBS API is retarded
+        # We have to bind the test button to a global callback instead of an instance method
         obs.obs_property_set_modified_callback(
             gift_scene_prop, update_gift_source_lists)
         obs.obs_properties_add_button(
@@ -574,7 +574,7 @@ class OBSRumLiveAlerts():
 
         print("Script settings updated.")
 
-    def get_text_items(self, scene_name: str):
+    def get_text_items(self, scene_name: str) -> list[str]:
         """Pull up the records of all text type sources within a scene"""
         return [
             item_name
