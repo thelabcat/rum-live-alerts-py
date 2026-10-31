@@ -151,7 +151,7 @@ class AlertSettings:
             properties, self.slug + "_scene_source", "Sub-scene to flash", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 
         # Add all subscenes to the subscene source selector now
-        for subscene_name in self.orla.subscene_names:
+        for subscene_name in sorted(self.orla.subscene_names):
             obs.obs_property_list_add_string(
                 scene_prop, subscene_name, subscene_name)
 
@@ -436,7 +436,7 @@ class OBSRumLiveAlerts():
 
         self.props = None
         self.scene_names_and_items = {}
-        self.subscene_names = []
+        self.subscene_names = set()
         self.source_names_to_types = {}
 
         # Inboxes of things waiting to be alerted for
@@ -570,17 +570,18 @@ class OBSRumLiveAlerts():
                 print("Stale new followers: ", self.api.new_followers)
                 print("Stale new subscribers: ", self.api.new_subscribers)
 
-            self.set_obs_timers()
+        # Always run alert timers so queued test alerts still display without an API key
+        self.set_obs_timers()
 
         print("Script settings updated.")
 
     def get_text_items(self, scene_name: str) -> list[str]:
         """Pull up the records of all text type sources within a scene"""
-        return [
+        return sorted(
             item_name
-            for item_name in self.scene_names_and_items.get(scene_name, [])
+            for item_name in self.scene_names_and_items.get(scene_name, set())
             if self.source_names_to_types.get(item_name, "NULL_RECORD") in ("text_gdiplus", "text_ft2_source")
-        ]
+        )
 
     def set_obs_timers(self):
         """Set all the timers we need in OBS"""
@@ -655,14 +656,14 @@ class OBSRumLiveAlerts():
         if scene_sources:
             print("Getting scene names")
             self.scene_names_and_items = {
-                obs.obs_source_get_name(s): [] for s in scene_sources}
+                obs.obs_source_get_name(s): set() for s in scene_sources}
             print("Releasing scene sources list")
             obs.source_list_release(scene_sources)
         else:
             print("No scenes found.")
 
         print("Evaluating which scenes are subscenes")
-        self.subscene_names = []
+        self.subscene_names = set()
         for scene_name, item_names in self.scene_names_and_items.items():
             print(scene_name + ":")
             # print("\t(getting scene items)")
@@ -677,8 +678,8 @@ class OBSRumLiveAlerts():
                     # print("\t(getting source name)")
                     name = obs.obs_source_get_name(source)
 
-                    # Make record that the item is in this scene
-                    item_names.append(name)
+                    # Make record that the item is in this scene (same name = same linked source)
+                    item_names.add(name)
 
                     # Is this item a subscene source?
                     # print("\t(identifying source type)")
@@ -687,7 +688,7 @@ class OBSRumLiveAlerts():
                         name) or obs.obs_source_get_unversioned_id(source)
                     if unversioned_id == "scene":
                         print(f"\t{unversioned_id}: {name} <--")
-                        self.subscene_names.append(name)
+                        self.subscene_names.add(name)
                     else:
                         print(f"\t{unversioned_id}: {name}")
                     # print("\t(releasing that source)\n")
@@ -722,12 +723,11 @@ class OBSRumLiveAlerts():
 
     def check_main_rls_api(self):
         """Check if there are any new alertables in the main RLS API and add them to the inboxes"""
-        print("Checking main RLS API")
-        # We have no API URL or it was invalid
+        # We have no API URL or it was invalid (timers still run for test alerts)
         if not self.settings.api_url or self.api_url_error:
-            print("ERROR: No valid API URL to check")
             return
 
+        print("Checking main RLS API")
         for new_follower in self.api.new_followers:
             self.follower_inbox.put(new_follower)
 
