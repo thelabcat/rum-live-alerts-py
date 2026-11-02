@@ -64,6 +64,33 @@ REFRESH_RATE_MIN = cocorum.static.Delays.api_refresh_minimum if COCORUM_IMPORTED
 
 REFRESH_RATE_MAX = 300
 
+# First entry of the Alert host scene selector. Preserves the old behavior of
+# toggling alert sub-scenes inside whatever scene is current.
+DYNAMIC_CURRENT_SCENE = "<dynamic: current scene>"
+
+# Shown in the script settings (OBS info text is HTML) and printed to the log.
+STUDIO_MODE_WARNING_UI = (
+    "<b>Studio Mode is on.</b> With &lt;dynamic: current scene&gt;, alerts are "
+    "toggled inside the current scene. Studio Mode shows a duplicate of that "
+    "scene on the program output, so those toggles can stay off-stream until "
+    "the next transition. Choose a fixed Alert host scene (one master alerts "
+    "scene nested into every program scene) to show alerts while Studio Mode "
+    "is on."
+)
+STUDIO_MODE_WARNING_LOG = (
+    "WARNING: Studio Mode is on and Alert host scene is '<dynamic: current scene>'. "
+    "Alerts are toggled inside the current scene, but Studio Mode's program output "
+    "uses a duplicate of that scene, so alerts may not appear on stream until the "
+    "next transition. Pick a fixed Alert host scene (a master alerts scene nested "
+    "into each program scene) to show alerts during Studio Mode."
+)
+
+
+def host_scene_is_dynamic(host_scene: str) -> bool:
+    """True when alert sub-scenes should be looked up in the current scene"""
+    return (not host_scene) or host_scene == DYNAMIC_CURRENT_SCENE
+
+
 TextSettingsDefaults = namedtuple("TextSettingsDefaults", ["source", "text"])
 
 
@@ -203,6 +230,8 @@ class LocalSettings:
         """Storage for the settings that OBS can modify, with default values"""
         self.orla, self.api_url, self.api_refresh_rate = \
             orla, api_url, api_refresh_rate
+        # Blank saved settings also select the dynamic option
+        self.alert_host_scene = DYNAMIC_CURRENT_SCENE
 
         self.follower = AlertSettings(
             orla=self.orla,
@@ -287,6 +316,8 @@ class LocalSettings:
     def set_obs_defaults(self, settings):
         """Set the OBS settings data defaults"""
         obs.obs_data_set_default_string(settings, "api_url", "")
+        obs.obs_data_set_default_string(
+            settings, "alert_host_scene", DYNAMIC_CURRENT_SCENE)
         obs.obs_data_set_default_double(
             settings, "api_refresh_rate", cocorum.static.Delays.api_refresh_default if COCORUM_IMPORTED else 10)
         for attr in (
@@ -301,6 +332,29 @@ class LocalSettings:
     def add_master_properties(self, properties=None):
         """Add the toplevel settings to OBS properties"""
         properties = properties or self.orla.props
+
+        # Which scene holds the alert sub-scenes. Dynamic keeps today's lookup.
+        host_prop = obs.obs_properties_add_list(
+            properties,
+            "alert_host_scene",
+            "Alert host scene",
+            obs.OBS_COMBO_TYPE_LIST,
+            obs.OBS_COMBO_FORMAT_STRING,
+        )
+        self.orla.fill_alert_host_scene_list(host_prop)
+        obs.obs_property_set_modified_callback(
+            host_prop, update_studio_mode_warning_disp)
+
+        warning_prop = obs.obs_properties_add_text(
+            properties,
+            "studio_mode_warning",
+            "You should not see this text.",
+            obs.OBS_TEXT_INFO,
+        )
+        obs.obs_property_text_set_info_type(
+            warning_prop, obs.OBS_TEXT_INFO_WARNING)
+        obs.obs_property_set_visible(warning_prop, False)
+
         api_url_prop = obs.obs_properties_add_text(
             properties, "api_url", "API URL (with key)", obs.OBS_TEXT_PASSWORD)
         obs.obs_property_set_modified_callback(api_url_prop, update_api_url_err_disp)
@@ -318,6 +372,8 @@ class LocalSettings:
     def get_from_obs(self, settings):
         """Extract settings from OBS settings data"""
         self.api_url = obs.obs_data_get_string(settings, "api_url")
+        self.alert_host_scene = obs.obs_data_get_string(
+            settings, "alert_host_scene") or DYNAMIC_CURRENT_SCENE
         self.api_refresh_rate = obs.obs_data_get_double(
             settings, "api_refresh_rate")
         for attr in (
@@ -428,6 +484,9 @@ class OBSRumLiveAlerts():
         """Instanced once within script as a reliable memory system"""
         print("Initializing OBSRumLiveAlerts object")
         self.__obs_timers_set = False
+        self.__frontend_event_callback_set = False
+        # True while the dynamic-host + Studio Mode warning is already showing
+        self.__studio_mode_warning_active = False
         self.alerts_mutex = threading.Lock()
         self.api = None
         self.api_url_error = None
@@ -519,6 +578,9 @@ class OBSRumLiveAlerts():
         print("Updating text display selectors")
         self.settings.update_all_source_lists()
 
+        # Visibility is read when the properties view builds its widgets
+        self.update_studio_mode_warning()
+
         print("Properties initialized.")
         return self.props
 
@@ -526,6 +588,7 @@ class OBSRumLiveAlerts():
         """Update the script settings"""
         print("Updating with settings")
         self.settings.get_from_obs(settings)
+        self.update_studio_mode_warning()
 
         # Deactivate timers and remove old livestream reference
         self.remove_obs_timers()
@@ -614,6 +677,15 @@ class OBSRumLiveAlerts():
         obs.timer_remove(next_raid_alert)
         obs.timer_remove(next_gift_alert)
 
+    def remove_frontend_event_callback(self):
+        """Drop the frontend event callback registered in script_load"""
+        if not self.__frontend_event_callback_set:
+            print("ERROR: Frontend event callback was not set.")
+            return
+        print("Removing frontend event callback")
+        obs.obs_frontend_remove_event_callback(on_frontend_event)
+        self.__frontend_event_callback_set = False
+
     def abandon_chat_alert_receiver(self):
         """If we have a chat alert receiver, tell it to stop, and remove its reference"""
         if self.chat_alert_receiver:
@@ -621,9 +693,27 @@ class OBSRumLiveAlerts():
             self.chat_alert_receiver.running = False
             self.chat_alert_receiver = None
 
+    def script_load(self, settings):
+        """Register frontend callbacks once OBS has finished loading the script"""
+        print("Registering frontend event callback")
+        if self.__frontend_event_callback_set:
+            print("ERROR: Frontend event callback already set.")
+            return
+        # Python wrapper takes only the function. private_data stays inside OBS.
+        # The callback must be a module-level function, not a bound method.
+        obs.obs_frontend_add_event_callback(on_frontend_event)
+        self.__frontend_event_callback_set = True
+
+        # script_update has not run yet, and Studio Mode may already be on.
+        # The enable event will not be replayed for us.
+        host_scene = obs.obs_data_get_string(settings, "alert_host_scene")
+        self.update_studio_mode_warning(host_scene=host_scene)
+
     def script_unload(self):
         """Perform script cleanup"""
         print("Unload triggered. Cleaning up")
+
+        self.remove_frontend_event_callback()
 
         # Deactivate timers and remove old livestream reference
         self.remove_obs_timers()
@@ -850,21 +940,116 @@ class OBSRumLiveAlerts():
                 }),
         )
 
+    def fill_alert_host_scene_list(self, prop):
+        """Fill the Alert host scene selector. The dynamic option is first."""
+        obs.obs_property_list_clear(prop)
+        obs.obs_property_list_add_string(
+            prop, DYNAMIC_CURRENT_SCENE, DYNAMIC_CURRENT_SCENE)
+        for scene_name in sorted(self.scene_names_and_items):
+            if scene_name == DYNAMIC_CURRENT_SCENE:
+                print(
+                    f"WARNING: A scene is named '{DYNAMIC_CURRENT_SCENE}', "
+                    "which is reserved for the dynamic option."
+                )
+                continue
+            obs.obs_property_list_add_string(prop, scene_name, scene_name)
+
+    def refresh_alert_host_scene_list(self):
+        """Rebuild the Alert host scene selector after the scene list changes.
+
+        The scripts panel keeps a Qt copy of the combo. This updates the
+        property OBS will use the next time that panel rebuilds its widgets.
+        """
+        if not self.props:
+            return
+        prop = obs.obs_properties_get(self.props, "alert_host_scene")
+        if not prop:
+            return
+        print("Scene list changed. Refreshing Alert host scene selector.")
+        self.get_scenes_and_sources()
+        self.fill_alert_host_scene_list(prop)
+
+    def update_studio_mode_warning(self, props=None, host_scene: str = None):
+        """Show the Studio Mode warning only for the dynamic host scene.
+
+        Prints once each time that combination becomes active. Returns True
+        so a property-modified callback refreshes the scripts panel.
+        """
+        if host_scene is None:
+            host_scene = self.settings.alert_host_scene
+        applies = host_scene_is_dynamic(host_scene) and bool(
+            obs.obs_frontend_preview_program_mode_active())
+
+        props = props or self.props
+        if props:
+            warning_prop = obs.obs_properties_get(props, "studio_mode_warning")
+            if warning_prop:
+                if applies:
+                    obs.obs_property_set_description(
+                        warning_prop, STUDIO_MODE_WARNING_UI)
+                    obs.obs_property_set_visible(warning_prop, True)
+                else:
+                    obs.obs_property_set_description(warning_prop, "")
+                    obs.obs_property_set_visible(warning_prop, False)
+
+        if applies:
+            if not self.__studio_mode_warning_active:
+                self.__studio_mode_warning_active = True
+                print(STUDIO_MODE_WARNING_LOG)
+        else:
+            self.__studio_mode_warning_active = False
+        return True
+
+    def on_frontend_event(self, event):
+        """Track Studio Mode and scene-list changes from the UI thread.
+
+        Does not toggle Studio Mode. Timer threads must not either.
+        """
+        if event in (
+            obs.OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED,
+            obs.OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED,
+        ):
+            self.update_studio_mode_warning()
+            return
+
+        # Scene add, remove, and rename. Collection switches replace the list.
+        if event in (
+            obs.OBS_FRONTEND_EVENT_SCENE_LIST_CHANGED,
+            obs.OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED,
+        ):
+            self.refresh_alert_host_scene_list()
+
     def __next_generic_alert(self, name: str, alert_scene_source: str, inbox: Queue, set_to_use: bool, config_alert_display: callable):
         """Do the next generic alert, finishing up the last one"""
         print(f"Doing {name} alert tick")
 
-        current_scenesource = obs.obs_frontend_get_current_scene()  # returns obs_source_t
+        # Both lookups increment the source refcounter. obs_scene_from_source
+        # does not. Release the source, not the scene.
+        host_name = self.settings.alert_host_scene
+        if host_scene_is_dynamic(host_name):
+            host_source = obs.obs_frontend_get_current_scene()
+        else:
+            host_source = obs.obs_get_source_by_name(host_name)
 
-        # These do not increase the refcounter, release the above instead
-        current_scene = obs.obs_scene_from_source(current_scenesource)
-        subscene_sceneitem = obs.obs_scene_find_source(
-            current_scene, alert_scene_source)
+        if not host_source:
+            print(
+                f"ERROR: Alert host scene '{host_name or DYNAMIC_CURRENT_SCENE}' was not found.")
+            return
+
+        # Does not increase the refcounter. Release host_source in finally.
+        host_scene = obs.obs_scene_from_source(host_source)
 
         try:
+            if not host_scene:
+                print(
+                    f"ERROR: Alert host '{obs.obs_source_get_name(host_source)}' is not a scene.")
+                return
+
+            subscene_sceneitem = obs.obs_scene_find_source(
+                host_scene, alert_scene_source)
             if not subscene_sceneitem:
                 print(
-                    f"Current scene '{obs.obs_source_get_name(current_scenesource)}' does not contain scene '{alert_scene_source}'")
+                    f"Alert host scene '{obs.obs_source_get_name(host_source)}' does not contain scene '{alert_scene_source}'")
                 return
 
             # Finish up the last gift alert
@@ -902,7 +1087,7 @@ class OBSRumLiveAlerts():
             obs.obs_sceneitem_set_visible(subscene_sceneitem, True)
 
         finally:
-            obs.obs_source_release(current_scenesource)
+            obs.obs_source_release(host_source)
 
     # TODO: Use lambda for these?
     def test_follower_alert(self, props, prop):
@@ -1053,12 +1238,28 @@ def update_api_url_err_disp(props, prop, settings):
     return rla.update_api_url_err_disp(props, prop, settings)
 
 
+def update_studio_mode_warning_disp(props, prop, settings):
+    """Show the Studio Mode warning when the dynamic host scene is selected."""
+    host_scene = obs.obs_data_get_string(settings, "alert_host_scene")
+    return rla.update_studio_mode_warning(props, host_scene)
+
+
+def on_frontend_event(event):
+    """Frontend event callback (global wrapper for RLA instance).
+
+    Must be a function, not a bound method: OBS rejects methods with
+    PyFunction_Check and would silently skip the registration.
+    """
+    return rla.on_frontend_event(event)
+
+
 # Cocorum is available, we can continue as normal
 if COCORUM_IMPORTED:
     # Make methods of the RLA instance globally accessible to OBS
     script_properties = rla.script_properties
     script_defaults = rla.script_defaults
     script_update = rla.script_update
+    script_load = rla.script_load
     script_unload = rla.script_unload
 
 # Cocorum failed to import, fall back

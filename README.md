@@ -25,6 +25,18 @@ Replicate the behavior of RumBot 4.5 in OBS Studio, without WebSocket
 
 Note that what scripts are loaded and what settings they hold seems bound to what OBS Studio "Scene Collection" is loaded. Use this to your advantage to have multiple streaming profiles if desired.
 
+## Alert host scene
+
+**Alert host scene** is under Base Settings. The default is `<dynamic: current scene>`, which is how the script used to work: each alert shows by toggling its sub-scene inside whatever scene is live. Every scene you might cut to needs its own copies of those alert sub-scenes (Follower Scene, Subscriber Scene, and the rest).
+
+To keep one layout instead, make a single master scene (for example, `Alerts`) and put the alert sub-scenes in it. Leave them hidden until an alert fires. Add that master scene as a source in every program scene, then set **Alert host scene** to it. Alerts toggle inside that master scene, so it does not matter which program scene is live. The alert sub-scenes need to be direct items in the host scene. One that is tucked inside a group is not found. If you rename the host scene later, pick it again in the script.
+
+### Studio Mode
+
+Studio Mode shows a duplicate of the current scene on the program output. With `<dynamic: current scene>`, the script toggles items in the current scene, and those toggles can stay invisible on stream until the next Studio Mode transition. A fixed Alert host scene avoids that: the alert items live in the nested master scene, which both the preview and the program copy share.
+
+If `<dynamic: current scene>` is selected while Studio Mode is on, the script prints a warning and shows one in the script settings. It will not turn Studio Mode off. Pick a fixed Alert host scene if you stream in Studio Mode. The log line is printed when that combination becomes active: Studio Mode switched on with the dynamic option selected, the dynamic option chosen while Studio Mode is already on, or the script loading already in that state. The warning in the settings window is filled in when the properties are built (when you select the script, or when you change Alert host scene).
+
 ## Legal
 This file is part of Rumble Live Alerts .PY.
 
