@@ -488,7 +488,13 @@ class OBSRumLiveAlerts():
         self.livestream = None
         self.chat_alert_receiver = None
 
+        # obs_properties_t is owned by the Scripts window. Do not reuse one
+        # after that window rebuilds or frees it.
         self.props = None
+        # True until SCENE_COLLECTION_CHANGED or FINISHED_LOADING. script_load
+        # often runs in the middle of a collection load, after CHANGING.
+        self.__scenes_loading = True
+        self.__hold_scene_events = False
         self.scene_names_and_items = {}
         self.subscene_names = set()
         self.source_names_to_types = {}
@@ -511,8 +517,22 @@ class OBSRumLiveAlerts():
     def script_properties(self):
         """Set up the configuration properties for this script"""
         print("Setting up script properties")
+        # The scripts window frees the previous properties object on rebuild.
+        self.props = None
         self.props = obs.obs_properties_create()
-        self.get_scenes_and_sources()
+        deferred_scenes = self.__scenes_loading
+        if deferred_scenes:
+            print(
+                "Scene collection is still loading. "
+                "Alert host scene choices will fill on the next properties refresh."
+            )
+            # The + button builds properties twice. The follow-up build can
+            # read scenes. An observed collection switch keeps the hold until
+            # SCENE_COLLECTION_CHANGED or FINISHED_LOADING.
+            if not self.__hold_scene_events:
+                self.__scenes_loading = False
+        else:
+            self.get_scenes_and_sources()
 
         # Base settings
         obs.obs_properties_add_text(
@@ -573,8 +593,10 @@ class OBSRumLiveAlerts():
         print("Updating text display selectors")
         self.settings.update_all_source_lists()
 
-        # Checked when the properties widgets are built, not on later Studio Mode toggles
-        self.update_studio_mode_warning()
+        # Checked when the properties widgets are built, not on later Studio Mode toggles.
+        # Skip frontend queries while this build ran before the collection was ready.
+        if not deferred_scenes:
+            self.update_studio_mode_warning()
 
         print("Properties initialized.")
         return self.props
@@ -690,6 +712,9 @@ class OBSRumLiveAlerts():
     def script_load(self, settings):
         """Register frontend callbacks once OBS has finished loading the script"""
         print("Registering frontend event callback")
+        # The collection may still be loading. Do not enumerate scenes or
+        # query the current scene from here.
+        self.props = None
         if self.__frontend_event_callback_set:
             print("ERROR: Frontend event callback already set.")
             return
@@ -698,15 +723,18 @@ class OBSRumLiveAlerts():
         obs.obs_frontend_add_event_callback(on_frontend_event)
         self.__frontend_event_callback_set = True
 
-        # script_update has not run yet, and Studio Mode may already be on.
-        # The enable event will not be replayed for us.
+        # Settings data only. The Studio Mode note is applied when properties
+        # are built, after the collection has finished loading.
         host_scene = obs.obs_data_get_string(settings, "alert_host_scene")
-        self.update_studio_mode_warning(host_scene=host_scene)
+        self.settings.alert_host_scene = host_scene or DYNAMIC_CURRENT_SCENE
 
     def script_unload(self):
         """Perform script cleanup"""
         print("Unload triggered. Cleaning up")
 
+        self.__scenes_loading = True
+        self.__hold_scene_events = True
+        self.props = None
         self.remove_frontend_event_callback()
 
         # Deactivate timers and remove old livestream reference
@@ -721,6 +749,9 @@ class OBSRumLiveAlerts():
 
     def get_scenes_and_sources(self):
         """Get listing of OBS scenes and scene item sources"""
+        if self.__scenes_loading:
+            print("Not enumerating scenes; a scene collection load is in progress.")
+            return False
         print("Getting scenes and sources...")
 
         print("Enumerating non-subscene sources")
@@ -948,28 +979,37 @@ class OBSRumLiveAlerts():
                 continue
             obs.obs_property_list_add_string(prop, scene_name, scene_name)
 
-    def refresh_alert_host_scene_list(self):
-        """Rebuild the Alert host scene selector after the scene list changes.
+    def refresh_scene_cache(self):
+        """Update internal scene records after the scene list changes.
 
-        The scripts panel keeps a Qt copy of the combo. This updates the
-        property OBS will use the next time that panel rebuilds its widgets.
+        Does not touch obs_properties_t. The Scripts window owns that object
+        and frees it on rebuild. The Alert host scene selector is filled from
+        this cache the next time script_properties runs.
         """
-        if not self.props:
+        if self.__scenes_loading:
             return
-        prop = obs.obs_properties_get(self.props, "alert_host_scene")
-        if not prop:
-            return
-        print("Scene list changed. Refreshing Alert host scene selector.")
+        print("Scene list changed. Refreshing cached scene list.")
         self.get_scenes_and_sources()
-        self.fill_alert_host_scene_list(prop)
+
+    def begin_scene_collection_load(self):
+        """Drop UI pointers and ignore scene-list events until loading finishes"""
+        self.__scenes_loading = True
+        self.__hold_scene_events = True
+        self.props = None
+
+    def finish_scene_collection_load(self):
+        """Collection scenes are safe to enumerate again"""
+        self.__hold_scene_events = False
+        self.__scenes_loading = False
+        self.refresh_scene_cache()
 
     def update_studio_mode_warning(self, props=None, host_scene: str = None):
         """Show a one-line Studio Mode warning for the dynamic host scene.
 
-        Called when the script loads, when its properties are built, and when
-        Alert host scene changes. Prints the long warning once each time that
-        combination becomes active. Returns True so the host-scene modified
-        callback refreshes the scripts panel.
+        Called when properties are built after the collection is ready, and
+        when Alert host scene changes. Prints the long warning once each time
+        that combination becomes active. Returns True so the host-scene
+        modified callback refreshes the scripts panel.
         """
         if host_scene is None:
             host_scene = self.settings.alert_host_scene
@@ -997,18 +1037,31 @@ class OBSRumLiveAlerts():
         return True
 
     def on_frontend_event(self, event):
-        """Refresh the Alert host scene selector when the scene list changes.
+        """Track scene-list changes without touching script properties.
 
-        Studio Mode toggles do not rebuild the warning. That is checked when
-        the script loads, when its properties are built, and when Alert host
-        scene changes. Does not toggle Studio Mode.
+        Scene enumeration waits until the collection has finished loading.
+        Does not toggle Studio Mode.
         """
-        # Scene add, remove, and rename. Collection switches replace the list.
         if event in (
-            obs.OBS_FRONTEND_EVENT_SCENE_LIST_CHANGED,
-            obs.OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED,
+            getattr(obs, "OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING", None),
+            getattr(obs, "OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN", None),
+            getattr(obs, "OBS_FRONTEND_EVENT_EXIT", None),
         ):
-            self.refresh_alert_host_scene_list()
+            self.begin_scene_collection_load()
+            return
+
+        if event in (
+            obs.OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED,
+            getattr(obs, "OBS_FRONTEND_EVENT_FINISHED_LOADING", None),
+        ):
+            self.finish_scene_collection_load()
+            return
+
+        # Add, remove, and rename. Ignored while a collection is loading.
+        if event == obs.OBS_FRONTEND_EVENT_SCENE_LIST_CHANGED:
+            if self.__scenes_loading:
+                return
+            self.refresh_scene_cache()
 
     def __next_generic_alert(self, name: str, alert_scene_source: str, inbox: Queue, set_to_use: bool, config_alert_display: callable):
         """Do the next generic alert, finishing up the last one"""

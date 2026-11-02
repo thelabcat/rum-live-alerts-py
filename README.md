@@ -35,7 +35,7 @@ To keep one layout instead, make a single master scene (for example, `Alerts`) a
 
 Studio Mode shows a duplicate of the current scene on the program output. With `<dynamic: current scene>`, the script toggles items in the current scene, and those toggles can stay invisible on stream until the next Studio Mode transition. A fixed Alert host scene avoids that: the alert items live in the nested master scene, which both the preview and the program copy share.
 
-If `<dynamic: current scene>` is selected while Studio Mode is on, the script prints the explanation above to the log and shows a one-line note in the script settings. It checks this when the script loads, when the script settings are opened, and when Alert host scene is changed. Turning Studio Mode on or off after that does not refresh the note. The script will not turn Studio Mode off. Pick a fixed Alert host scene if you stream in Studio Mode.
+If `<dynamic: current scene>` is selected while Studio Mode is on, the script prints the explanation above to the log and shows a one-line note in the script settings. It checks this when the script settings are opened and when Alert host scene is changed. Turning Studio Mode on or off after that does not refresh the note. Switching scene collections does not rebuild the note or the scene list until the collection has finished loading and the script settings are opened again. The script will not turn Studio Mode off. Pick a fixed Alert host scene if you stream in Studio Mode.
 
 ## Legal
 This file is part of Rumble Live Alerts .PY.
