@@ -68,14 +68,9 @@ REFRESH_RATE_MAX = 300
 # toggling alert sub-scenes inside whatever scene is current.
 DYNAMIC_CURRENT_SCENE = "<dynamic: current scene>"
 
-# Shown in the script settings (OBS info text is HTML) and printed to the log.
+# Short line in the script settings. The long form is the log message and the README.
 STUDIO_MODE_WARNING_UI = (
-    "<b>Studio Mode is on.</b> With &lt;dynamic: current scene&gt;, alerts are "
-    "toggled inside the current scene. Studio Mode shows a duplicate of that "
-    "scene on the program output, so those toggles can stay off-stream until "
-    "the next transition. Choose a fixed Alert host scene (one master alerts "
-    "scene nested into every program scene) to show alerts while Studio Mode "
-    "is on."
+    "Studio Mode is on. Current-scene alerts can stay off-stream until the next transition."
 )
 STUDIO_MODE_WARNING_LOG = (
     "WARNING: Studio Mode is on and Alert host scene is '<dynamic: current scene>'. "
@@ -578,7 +573,7 @@ class OBSRumLiveAlerts():
         print("Updating text display selectors")
         self.settings.update_all_source_lists()
 
-        # Visibility is read when the properties view builds its widgets
+        # Checked when the properties widgets are built, not on later Studio Mode toggles
         self.update_studio_mode_warning()
 
         print("Properties initialized.")
@@ -588,7 +583,6 @@ class OBSRumLiveAlerts():
         """Update the script settings"""
         print("Updating with settings")
         self.settings.get_from_obs(settings)
-        self.update_studio_mode_warning()
 
         # Deactivate timers and remove old livestream reference
         self.remove_obs_timers()
@@ -970,10 +964,12 @@ class OBSRumLiveAlerts():
         self.fill_alert_host_scene_list(prop)
 
     def update_studio_mode_warning(self, props=None, host_scene: str = None):
-        """Show the Studio Mode warning only for the dynamic host scene.
+        """Show a one-line Studio Mode warning for the dynamic host scene.
 
-        Prints once each time that combination becomes active. Returns True
-        so a property-modified callback refreshes the scripts panel.
+        Called when the script loads, when its properties are built, and when
+        Alert host scene changes. Prints the long warning once each time that
+        combination becomes active. Returns True so the host-scene modified
+        callback refreshes the scripts panel.
         """
         if host_scene is None:
             host_scene = self.settings.alert_host_scene
@@ -1001,17 +997,12 @@ class OBSRumLiveAlerts():
         return True
 
     def on_frontend_event(self, event):
-        """Track Studio Mode and scene-list changes from the UI thread.
+        """Refresh the Alert host scene selector when the scene list changes.
 
-        Does not toggle Studio Mode. Timer threads must not either.
+        Studio Mode toggles do not rebuild the warning. That is checked when
+        the script loads, when its properties are built, and when Alert host
+        scene changes. Does not toggle Studio Mode.
         """
-        if event in (
-            obs.OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED,
-            obs.OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED,
-        ):
-            self.update_studio_mode_warning()
-            return
-
         # Scene add, remove, and rename. Collection switches replace the list.
         if event in (
             obs.OBS_FRONTEND_EVENT_SCENE_LIST_CHANGED,
