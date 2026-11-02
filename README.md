@@ -25,6 +25,13 @@ Replicate the behavior of RumBot 4.5 in OBS Studio, without WebSocket
 
 Note that what scripts are loaded and what settings they hold seems bound to what OBS Studio "Scene Collection" is loaded. Use this to your advantage to have multiple streaming profiles if desired.
 
+## Rumble Terms of Service
+[Rumble's Terms of Service](https://rumble.com/s/terms) prohibit automated software from accessing the site without Rumble's prior written permission.
+
+This tool uses the official [Live Stream API](https://rumble.support/help/how-to-use-rumble-s-live-stream-api), which that help page allows with "full reign." It also reads chat read-only through Cocorum's undocumented internal chat stream, which that permission may not cover. The author has asked Rumble for written permission.
+
+This project is not affiliated with Rumble. Use it only for your own streams.
+
 ## Legal
 This file is part of Rumble Live Alerts .PY.
 
